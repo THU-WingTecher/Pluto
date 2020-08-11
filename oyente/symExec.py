@@ -53,6 +53,25 @@ class Parameter:
         _kwargs = custom_deepcopy(self.__dict__)
         return Parameter(**_kwargs)
 
+def initGlobalCallVars():
+    # ** add by fcorleone
+    # define some call related global variables
+    global start_data_input
+    global size_data_input
+    global start_data_output
+    global size_data_output
+    global msg_data
+    global return_data_size
+    global return_data
+    # here we add a global variable to store all the global state
+    global backup_state # !!!important
+
+    size_data_input = 0
+    return_data_size = 0
+    return_data = None
+    backup_state = None
+    msg_data = None
+
 def initGlobalVars():
     global g_src_map
     global solver
@@ -176,6 +195,149 @@ def initGlobalVars():
     if global_params.REPORT_MODE:
         rfile = open(g_disasm_file + '.report', 'w')
 
+# def _backup_state(visited,stack,mem,memory,global_state,sha3_list,path_conditions_and_vars,analysis,calls,overflow_pcs,block, func_call, current_func_name):
+def _backup_state():
+    global backup_state
+
+    global g_src_map
+    global solver
+    global MSIZE
+    global revertible_overflow_pcs
+    global g_disasm_file
+    global g_timeout
+    global visited_pcs
+    global results
+    global start_block_to_func_sig
+    global calls_affect_state
+    global end_ins_dict
+    global instructions
+    global jump_type
+    global vertices
+    global edges
+    global visited_edges
+    global money_flow_all_paths
+    global reentrancy_all_paths
+    global path_conditions
+    global global_problematic_pcs
+    global all_gs
+    global total_no_of_paths
+    global no_of_test_cases
+    global gen
+    global data_source
+    global rfile
+    backup_state = {
+        'g_src_map':g_src_map,
+        'solver':solver,
+        'MSIZE':MSIZE,
+        'revertible_overflow_pcs':revertible_overflow_pcs,
+        'g_disasm_file':g_disasm_file,
+        'g_timeout':g_timeout,
+        'visited_pcs':visited_pcs,
+        'results':results,
+        'start_block_to_func_sig':start_block_to_func_sig,
+        'calls_affect_state':calls_affect_state,
+        'end_ins_dict':end_ins_dict,
+        'instructions':instructions,
+        'jump_type':jump_type,
+        'vertices':vertices,
+        'edges':edges,
+        'visited_edges':visited_edges,
+        'money_flow_all_paths':money_flow_all_paths,
+        'reentrancy_all_paths':reentrancy_all_paths,
+        'path_conditions':path_conditions,
+        'global_problematic_pcs':global_problematic_pcs,
+        'all_gs':all_gs,
+        'total_no_of_paths':total_no_of_paths,
+        'no_of_test_cases':no_of_test_cases,
+        'gen':gen
+        # 'data_source':data_source,
+        # rfile is used after the analyze process, so we don't need to store it here
+        # 'rfile':rfile,
+    #     # no need to store the paremeters when executing a block, they are not global so they will not change
+    #     # params, block, pre_block, depth, func_call, current_func_name
+    #         # visited = params.visited
+    #         # stack = params.stack
+    #         # mem = params.mem
+    #         # memory = params.memory
+    #         # global_state = params.global_state
+    #         # sha3_list = params.sha3_list
+    #         # path_conditions_and_vars = params.path_conditions_and_vars
+    #         # analysis = params.analysis
+    #         # calls = params.calls
+    #         # overflow_pcs = params.overflow_pcs
+        # 'visited':visited,
+        # 'stack':stack,
+        # 'mem':mem,
+        # 'memory':memory,
+        # 'global_state':global_state,
+        # 'sha3_list':sha3_list,
+        # 'path_conditions_and_vars':path_conditions_and_vars,
+        # 'analysis':analysis,
+        # 'calls':calls,
+        # 'overflow_pcs':overflow_pcs,
+        # 'block':block,
+        # 'pre_block':pre_block,
+        # 'depth':depth,
+        # 'func_call':func_call,
+        # 'current_func_name':current_func_name
+    }
+def _load_state():
+    global backup_state
+
+    global g_src_map
+    global solver
+    global MSIZE
+    global revertible_overflow_pcs
+    global g_disasm_file
+    global g_timeout
+    global visited_pcs
+    global results
+    global start_block_to_func_sig
+    global calls_affect_state
+    global end_ins_dict
+    global instructions
+    global jump_type
+    global vertices
+    global edges
+    global visited_edges
+    global money_flow_all_paths
+    global reentrancy_all_paths
+    global path_conditions
+    global global_problematic_pcs
+    global all_gs
+    global total_no_of_paths
+    global no_of_test_cases
+    global gen
+    global data_source
+    global rfile
+
+    g_src_map = backup_state['g_src_map']
+    solver = backup_state['solver']
+    MSIZE = backup_state['MSIZE']
+    revertible_overflow_pcs = backup_state['revertible_overflow_pcs']
+    g_disasm_file = backup_state['g_disasm_file']
+    g_timeout = backup_state['g_timeout']
+    visited_pcs = backup_state['visited_pcs']
+    results = backup_state['results']
+    start_block_to_func_sig = backup_state['start_block_to_func_sig']
+    calls_affect_state = backup_state['calls_affect_state']
+    end_ins_dict = backup_state['end_ins_dict']
+    instructions = backup_state['instructions']
+    jump_type = backup_state['jump_type']
+    vertices = backup_state['vertices']
+    edges = backup_state['edges']
+    visited_edges = backup_state['visited_edges']
+    money_flow_all_paths = backup_state['money_flow_all_paths']
+    reentrancy_all_paths = backup_state['reentrancy_all_paths']
+    path_conditions = backup_state['path_conditions']
+    global_problematic_pcs = backup_state['global_problematic_pcs']
+    all_gs = backup_state['all_gs']
+    total_no_of_paths = backup_state['total_no_of_paths']
+    no_of_test_cases = backup_state['no_of_test_cases']
+    gen = backup_state['gen']
+
+    backup_state = None
+
 def is_testing_evm():
     return global_params.UNIT_TEST != 0
 
@@ -226,7 +388,6 @@ def build_cfg_and_analyze():
         construct_bb()
         construct_static_edges()
         full_sym_exec()  # jump targets are constructed on the fly
-
 
 def print_cfg():
     for block in vertices.values():
@@ -546,6 +707,14 @@ def full_sym_exec():
         start_block_to_func_sig = get_start_block_to_func_sig()
     return sym_exec_block(params, 0, 0, 0, -1, 'fallback')
 
+# ** add by fcorleone
+# def a function to execute called contract when CALL opcode is encountered
+# '''
+#   path_conditions_and_vars: the current path constrains and variables
+#   
+# '''
+def full_sym_exec_call(path_conditions_and_vars={"path_condition" : []}):
+    path_conditions_and_vars = path_conditions_and_vars
 
 # Symbolically executing a block from the start address
 def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name):
@@ -737,6 +906,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
     global g_src_map
     global calls_affect_state
     global data_source
+    global start_data_output
+    global start_data_input
+    global size_data_input
+    global size_data_ouput
+    global msg_data
+    global g_all_contracts
+    global return_data_size
+    global return_data
 
     stack = params.stack
     mem = params.mem
@@ -1129,6 +1306,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+	    # log.warning("the first is: %s, and the second is : %s",first,second)
+	    # log.warning(path_conditions_and_vars)
             if isAllReal(first, second):
                 first = to_unsigned(first)
                 second = to_unsigned(second)
@@ -1138,8 +1317,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     computed = 0
             else:
                 computed = If(ULT(first, second), BitVecVal(1, 256), BitVecVal(0, 256))
+		#log.warning("computed is: %s",computed)
             computed = simplify(computed) if is_expr(computed) else computed
-            stack.insert(0, computed)
+            # log.warning("computed is: %s",computed)
+	    stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "GT":
@@ -1201,6 +1382,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+	    # log.warning("EQ: first is %s and second is %s",first,second)
             if isAllReal(first, second):
                 if first == second:
                     computed = 1
@@ -1373,36 +1555,47 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             position = stack.pop(0)
-            if g_src_map:
-                source_code = g_src_map.get_source_code(global_state['pc'] - 1)
-                if source_code.startswith("function") and isReal(position) and current_func_name in g_src_map.func_name_to_params:
-                    params =  g_src_map.func_name_to_params[current_func_name]
-                    param_idx = (position - 4) // 32
-                    for param in params:
-                        if param_idx == param['position']:
-                            new_var_name = param['name']
-                            g_src_map.var_names.append(new_var_name)
+            # if the msg_data is not None, we push the real call data to the stack
+            if msg_data != None:
+                # log.warning("msg_data is %s",msg_data)
+                stack.insert(0,msg_data)
+            else:
+                if g_src_map:
+                    source_code = g_src_map.get_source_code(global_state['pc'] - 1)
+                    if source_code.startswith("function") and isReal(position) and current_func_name in g_src_map.func_name_to_params:
+                        params =  g_src_map.func_name_to_params[current_func_name]
+                        param_idx = (position - 4) // 32
+                        for param in params:
+                            if param_idx == param['position']:
+                                new_var_name = param['name']
+                                g_src_map.var_names.append(new_var_name)
+                    else:
+                        new_var_name = gen.gen_data_var(position)
                 else:
                     new_var_name = gen.gen_data_var(position)
-            else:
-                new_var_name = gen.gen_data_var(position)
+                if new_var_name in path_conditions_and_vars:
+                    new_var = path_conditions_and_vars[new_var_name]
+                else:
+                    new_var = BitVec(new_var_name, 256)
+                    path_conditions_and_vars[new_var_name] = new_var
+                stack.insert(0, new_var)
+        else:
+            raise ValueError('STACK underflow')
+    elif opcode == "CALLDATASIZE":
+        # ** add by fcorleone, when encountered with CALLDATASIZE, we should push the data size into the stack
+        # log.warning('size_data_input is %s', size_data_input)
+        if size_data_input:
+            # log.warning('size_data_input is %s', size_data_input)
+            stack.insert(0,size_data_input)
+        else:
+            global_state["pc"] = global_state["pc"] + 1
+            new_var_name = gen.gen_data_size()
             if new_var_name in path_conditions_and_vars:
                 new_var = path_conditions_and_vars[new_var_name]
             else:
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
             stack.insert(0, new_var)
-        else:
-            raise ValueError('STACK underflow')
-    elif opcode == "CALLDATASIZE":
-        global_state["pc"] = global_state["pc"] + 1
-        new_var_name = gen.gen_data_size()
-        if new_var_name in path_conditions_and_vars:
-            new_var = path_conditions_and_vars[new_var_name]
-        else:
-            new_var = BitVec(new_var_name, 256)
-            path_conditions_and_vars[new_var_name] = new_var
-        stack.insert(0, new_var)
     elif opcode == "CALLDATACOPY":  # Copy input data to memory
         #  TODO: Don't know how to simulate this yet
         if len(stack) > 2:
@@ -1480,10 +1673,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         else:
             raise ValueError('STACK underflow')
     elif opcode == "RETURNDATASIZE":
-        global_state["pc"] += 1
-        new_var_name = gen.gen_arbitrary_var()
-        new_var = BitVec(new_var_name, 256)
-        stack.insert(0, new_var)
+        if return_data_size != 0:
+            # log.warning('return_data_size is %s',return_data_size)
+            stack.insert(0, return_data_size)
+        else:
+            global_state["pc"] += 1
+            new_var_name = gen.gen_arbitrary_var()
+            new_var = BitVec(new_var_name, 256)
+            stack.insert(0, new_var)
     elif opcode == "GASPRICE":
         global_state["pc"] = global_state["pc"] + 1
         stack.insert(0, global_state["gas_price"])
@@ -1491,6 +1688,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             address = stack.pop(0)
+	    # log.warning(address)
             if isReal(address) and global_params.USE_GLOBAL_BLOCKCHAIN:
                 code = data_source.getCode(address)
                 stack.insert(0, len(code)/2)
@@ -1594,6 +1792,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             address = stack.pop(0)
             current_miu_i = global_state["miu_i"]
+	    # log.warning("MLOAD: address is:%s, mem is :%s",address,mem)
             if isAllReal(address, current_miu_i) and address in mem:
                 if six.PY2:
                     temp = long(math.ceil((address + 32) / float(32)))
@@ -1634,6 +1833,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             stored_address = stack.pop(0)
             stored_value = stack.pop(0)
             current_miu_i = global_state["miu_i"]
+	    # log.warning("current store address is:%s and the current mem is:%s",stored_address,mem)
             if isReal(stored_address):
                 # preparing data for hashing later
                 old_size = len(memory) // 32
@@ -1703,9 +1903,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             position = stack.pop(0)
+	    # log.warning(global_state["Ia"])
+	    # log.warning("the isposition is %s",isReal(position))
             if isReal(position) and position in global_state["Ia"]:
                 value = global_state["Ia"][position]
                 stack.insert(0, value)
+		#log.warning("i'm here the value is %s",value)
             elif global_params.USE_GLOBAL_STORAGE and isReal(position) and position not in global_state["Ia"]:
                 value = data_source.getStorageAt(position)
                 global_state["Ia"][position] = value
@@ -1874,7 +2077,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             raise ValueError('STACK underflow')
     elif opcode == "CALL":
         # TODO: Need to handle miu_i
+        log.warning("execution CALL")
         if len(stack) > 6:
+	    # log.warning("stack is %d",len(stack))
             calls.append(global_state["pc"])
             for call_pc in calls:
                 if call_pc not in calls_affect_state:
@@ -1889,57 +2094,105 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             size_data_ouput = stack.pop(0)
             # in the paper, it is shaky when the size of data output is
             # min of stack[6] and the | o |
-
             if isReal(transfer_amount):
-                if transfer_amount == 0:
-                    stack.insert(0, 1)   # x = 0
-                    return
-
+            #    if transfer_amount == 0:
+            #        stack.insert(0, 1)   # x = 0
+            #        return
             # Let us ignore the call depth
-            balance_ia = global_state["balance"]["Ia"]
-            is_enough_fund = (transfer_amount <= balance_ia)
-            solver.push()
-            solver.add(is_enough_fund)
-
+                balance_ia = global_state["balance"]["Ia"]
+                is_enough_fund = (transfer_amount <= balance_ia)
+                solver.push()
+                solver.add(is_enough_fund)
             if check_sat(solver) == unsat:
                 # this means not enough fund, thus the execution will result in exception
-                solver.pop()
-                stack.insert(0, 0)   # x = 0
+		        solver.pop()
+		        stack.insert(0, 0)   # x = 0
             else:
-                # the execution is possibly okay
-                stack.insert(0, 1)   # x = 1
-                solver.pop()
-                solver.add(is_enough_fund)
-                path_conditions_and_vars["path_condition"].append(is_enough_fund)
-                last_idx = len(path_conditions_and_vars["path_condition"]) - 1
-                analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
-                new_balance_ia = (balance_ia - transfer_amount)
-                global_state["balance"]["Ia"] = new_balance_ia
-                address_is = path_conditions_and_vars["Is"]
-                address_is = (address_is & CONSTANT_ONES_159)
-                boolean_expression = (recipient != address_is)
-                solver.push()
-                solver.add(boolean_expression)
-                if check_sat(solver) == unsat:
+                # ** add by fcorleone, here we need to store the current state
+                # except for the variables related to msg, that is :
+                # start_data_input, size_data_input, start_data_output and size_data_output
+                
+                call_data = mem[start_data_input]
+                # store the msg.data for calling functions
+                msg_data = call_data
+                call_data_16 = str(hex(call_data))
+                # get the signature of the called function
+                signature = call_data_16[2:10]
+                # search for the first contract which has the called function
+                target_inp = None
+                current_inp = None
+                own_function = False
+                for inp in g_all_contracts:
+                    disasm_f = inp['disasm_file']
+                    # if the current contract has the function then search for the other contract first
+                    if disasm_f == g_disasm_file:
+                        own_function = True
+                        current_inp = inp
+                        continue
+                    with open(disasm_f, 'r') as f:
+                        disasm_content = f.read()
+                        if signature in disasm_content:
+                            target_inp = inp
+                            break
+                if own_function and target_inp == None:
+                    # this means the only function can be called is clearin the current contract
+                    target_inp = current_inp
+                # run the target function symboliclly
+                log.warning('signature is %s', signature)
+                log.warning('target contract is %s',target_inp['contract'])
+                _backup_state()
+                return_code_call = 0
+                # result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
+                #                 is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
+                # load the backup state
+                _load_state()
+                # log.warning('return_data_size is %s',return_data_size)
+                if return_code_call != 0:
                     solver.pop()
-                    new_balance_is = (global_state["balance"]["Is"] + transfer_amount)
-                    global_state["balance"]["Is"] = new_balance_is
+                    stack.insert(0, 0)
                 else:
+                    # the execution is possibly okay
+                    # TODO: the return value is success, what's next
+                    stack.insert(0, 1)   # x = 1
+                    # add the return data to memory
+                    # mem[start_data_output] = return_data
+                    # log.warning(mem) 
+
                     solver.pop()
-                    if isReal(recipient):
-                        new_address_name = "concrete_address_" + str(recipient)
+                    solver.add(is_enough_fund)
+                    path_conditions_and_vars["path_condition"].append(is_enough_fund)
+                    last_idx = len(path_conditions_and_vars["path_condition"]) - 1
+                    analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
+                    new_balance_ia = (balance_ia - transfer_amount)
+                    global_state["balance"]["Ia"] = new_balance_ia
+                    address_is = path_conditions_and_vars["Is"]
+                    address_is = (address_is & CONSTANT_ONES_159)
+                    boolean_expression = (recipient != address_is)
+                    solver.push()
+                    solver.add(boolean_expression)
+                    if check_sat(solver) == unsat:
+                        solver.pop()
+                        new_balance_is = (global_state["balance"]["Is"] + transfer_amount)
+                        global_state["balance"]["Is"] = new_balance_is
                     else:
-                        new_address_name = gen.gen_arbitrary_address_var()
-                    old_balance_name = gen.gen_arbitrary_var()
-                    old_balance = BitVec(old_balance_name, 256)
-                    path_conditions_and_vars[old_balance_name] = old_balance
-                    constraint = (old_balance >= 0)
-                    solver.add(constraint)
-                    path_conditions_and_vars["path_condition"].append(constraint)
-                    new_balance = (old_balance + transfer_amount)
-                    global_state["balance"][new_address_name] = new_balance
+                        solver.pop()
+                        if isReal(recipient):
+                            new_address_name = "concrete_address_" + str(recipient)
+                        else:
+                            new_address_name = gen.gen_arbitrary_address_var()
+                        old_balance_name = gen.gen_arbitrary_var()
+                        old_balance = BitVec(old_balance_name, 256)
+                        path_conditions_and_vars[old_balance_name] = old_balance
+                        constraint = (old_balance >= 0)
+                        solver.add(constraint)
+                        path_conditions_and_vars["path_condition"].append(constraint)
+                        new_balance = (old_balance + transfer_amount)
+                        global_state["balance"][new_address_name] = new_balance
+                
         else:
             raise ValueError('STACK underflow')
+    
+
     elif opcode == "CALLCODE":
         # TODO: Need to handle miu_i
         if len(stack) > 6:
@@ -2021,8 +2274,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             if opcode == "REVERT":
                 revertible_overflow_pcs.update(overflow_pcs)
                 global_state["pc"] = global_state["pc"] + 1
-            stack.pop(0)
-            stack.pop(0)
+                stack.pop(0)
+                stack.pop(0)
+            else:
+                # opcode is RETURN
+                offset = stack.pop(0)
+                return_data_size = stack.pop(0)
+                return_data = mem[offset]
             # TODO
             pass
         else:
@@ -2055,7 +2313,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
         raise Exception('UNKNOWN INSTRUCTION: ' + opcode)
 
 # Detect if a money flow depends on the timestamp
-def detect_time_dependency():
+def detect_time_dependency(is_printLog=True):
     global results
     global g_src_map
     global time_dependency
@@ -2081,7 +2339,8 @@ def detect_time_dependency():
         results['vulnerabilities']['time_dependency'] = time_dependency.get_warnings()
     else:
         results['vulnerabilities']['time_dependency'] = time_dependency.is_vulnerable()
-    log.info('\t  Timestamp Dependency: \t\t %s', time_dependency.is_vulnerable())
+    if is_printLog:
+        log.info('\t  Timestamp Dependency: \t\t %s', time_dependency.is_vulnerable())
 
     if global_params.REPORT_MODE:
         file_name = g_disasm_file.split("/")[len(g_disasm_file.split("/"))-1].split(".")[0]
@@ -2094,7 +2353,7 @@ def detect_time_dependency():
 
 
 # detect if two paths send money to different people
-def detect_money_concurrency():
+def detect_money_concurrency(is_printLog=True):
     global results
     global g_src_map
     global money_concurrency
@@ -2133,7 +2392,8 @@ def detect_money_concurrency():
         results['vulnerabilities']['money_concurrency'] = money_concurrency.get_warnings_of_flows()
     else:
         results['vulnerabilities']['money_concurrency'] = money_concurrency.is_vulnerable()
-    log.info('\t  Transaction-Ordering Dependence (TOD): %s', money_concurrency.is_vulnerable())
+    if is_printLog:
+        log.info('\t  Transaction-Ordering Dependence (TOD): %s', money_concurrency.is_vulnerable())
 
     # if PRINT_MODE: print "All false positive cases: ", false_positive
     log.debug("Concurrency in paths: ")
@@ -2147,7 +2407,7 @@ def detect_money_concurrency():
         # all the races
         rfile.write(str(concurrency_paths) + "\n")
 
-def detect_parity_multisig_bug_2():
+def detect_parity_multisig_bug_2(is_printLog = True):
     global g_src_map
     global results
     global parity_multisig_bug_2
@@ -2155,8 +2415,9 @@ def detect_parity_multisig_bug_2():
     parity_multisig_bug_2 = ParityMultisigBug2(g_src_map)
 
     results['vulnerabilities']['parity_multisig_bug_2'] = parity_multisig_bug_2.get_warnings()
-    s = "\t  Parity Multisig Bug 2: \t\t %s" % parity_multisig_bug_2.is_vulnerable()
-    log.info(s)
+    if is_printLog:
+        s = "\t  Parity Multisig Bug 2: \t\t %s" % parity_multisig_bug_2.is_vulnerable()
+        log.info(s)
 
 def check_callstack_attack(disasm):
     problematic_instructions = ['CALL', 'CALLCODE']
@@ -2190,7 +2451,7 @@ def check_callstack_attack(disasm):
     return pcs
 
 
-def detect_callstack_attack():
+def detect_callstack_attack(is_printLog=True):
     global results
     global g_src_map
     global calls_affect_state
@@ -2207,9 +2468,10 @@ def detect_callstack_attack():
         results['vulnerabilities']['callstack'] = callstack.get_warnings()
     else:
         results['vulnerabilities']['callstack'] = callstack.is_vulnerable()
-    log.info('\t  Callstack Depth Attack Vulnerability:  %s', callstack.is_vulnerable())
+    if is_printLog:
+        log.info('\t  Callstack Depth Attack Vulnerability:  %s', callstack.is_vulnerable())
 
-def detect_reentrancy():
+def detect_reentrancy(is_printLog=True):
     global g_src_map
     global results
     global reentrancy
@@ -2221,9 +2483,10 @@ def detect_reentrancy():
         results['vulnerabilities']['reentrancy'] = reentrancy.get_warnings()
     else:
         results['vulnerabilities']['reentrancy'] = reentrancy.is_vulnerable()
-    log.info("\t  Re-Entrancy Vulnerability: \t\t %s", reentrancy.is_vulnerable())
+    if is_printLog:
+        log.info("\t  Re-Entrancy Vulnerability: \t\t %s", reentrancy.is_vulnerable())
 
-def detect_integer_underflow():
+def detect_integer_underflow(is_printLog=True):
     global integer_underflow
 
     integer_underflow = IntegerUnderflow(g_src_map, global_problematic_pcs['integer_underflow'])
@@ -2232,9 +2495,10 @@ def detect_integer_underflow():
         results['vulnerabilities']['integer_underflow'] = integer_underflow.get_warnings()
     else:
         results['vulnerabilities']['integer_underflow'] = integer_underflow.is_vulnerable()
-    log.info('\t  Integer Underflow: \t\t\t %s', integer_underflow.is_vulnerable())
+    if is_printLog:
+        log.info('\t  Integer Underflow: \t\t\t %s', integer_underflow.is_vulnerable())
 
-def detect_integer_overflow():
+def detect_integer_overflow(is_printLog=True):
     global integer_overflow
 
     overflows = []
@@ -2247,7 +2511,8 @@ def detect_integer_overflow():
         results['vulnerabilities']['integer_overflow'] = integer_overflow.get_warnings()
     else:
         results['vulnerabilities']['integer_overflow'] = integer_overflow.is_vulnerable()
-    log.info('\t  Integer Overflow: \t\t\t %s', integer_overflow.is_vulnerable())
+    if is_printLog:
+        log.info('\t  Integer Overflow: \t\t\t %s', integer_overflow.is_vulnerable())
 
 def detect_assertion_failure():
     global g_src_map
@@ -2260,7 +2525,7 @@ def detect_assertion_failure():
     s = "\t  Assertion Failure: \t\t\t %s" % assertion_failure.is_vulnerable()
     log.info(s)
 
-def detect_vulnerabilities():
+def detect_vulnerabilities(is_printLog=True):
     global results
     global g_src_map
     global visited_pcs
@@ -2269,22 +2534,23 @@ def detect_vulnerabilities():
 
     if instructions:
         evm_code_coverage = float(len(visited_pcs)) / len(instructions.keys()) * 100
-        log.info("\t  EVM Code Coverage: \t\t\t %s%%", round(evm_code_coverage, 1))
+        if is_printLog:
+            log.info("\t  EVM Code Coverage: \t\t\t %s%%", round(evm_code_coverage, 1))
         results["evm_code_coverage"] = str(round(evm_code_coverage, 1))
 
         if g_src_map:
-            detect_integer_underflow()
-            detect_integer_overflow()
-            detect_parity_multisig_bug_2()
+            detect_integer_underflow(is_printLog)
+            detect_integer_overflow(is_printLog)
+            detect_parity_multisig_bug_2(is_printLog)
 
         log.debug("Checking for Callstack attack...")
-        detect_callstack_attack()
+        detect_callstack_attack(is_printLog)
 
         if global_params.REPORT_MODE:
             rfile.write(str(total_no_of_paths) + "\n")
 
-        detect_money_concurrency()
-        detect_time_dependency()
+        detect_money_concurrency(is_printLog)
+        detect_time_dependency(is_printLog)
 
         stop = time.time()
         if global_params.REPORT_MODE:
@@ -2292,7 +2558,7 @@ def detect_vulnerabilities():
             rfile.close()
 
         log.debug("Results for Reentrancy Bug: " + str(reentrancy_all_paths))
-        detect_reentrancy()
+        detect_reentrancy(is_printLog)
 
         if global_params.CHECK_ASSERTIONS:
             if g_src_map:
@@ -2304,13 +2570,14 @@ def detect_vulnerabilities():
             log_info()
 
     else:
-        log.info("\t  EVM code coverage: \t 0/0")
-        log.info("\t  Callstack bug: \t False")
-        log.info("\t  Money concurrency bug: False")
-        log.info("\t  Time dependency bug: \t False")
-        log.info("\t  Reentrancy bug: \t False")
-        if global_params.CHECK_ASSERTIONS:
-            log.info("\t  Assertion failure: \t False")
+        if is_printLog:
+            log.info("\t  EVM code coverage: \t 0/0")
+            log.info("\t  Callstack bug: \t False")
+            log.info("\t  Money concurrency bug: False")
+            log.info("\t  Time dependency bug: \t False")
+            log.info("\t  Reentrancy bug: \t False")
+            if global_params.CHECK_ASSERTIONS:
+                log.info("\t  Assertion failure: \t False")
         results["evm_code_coverage"] = "0/0"
 
     return results, vulnerability_found()
@@ -2355,11 +2622,11 @@ def vulnerability_found():
             return 1
     return 0
 
-def closing_message():
+def closing_message(is_printLog=True):
     global g_disasm_file
     global results
-
-    log.info("\t====== Analysis Completed ======")
+    if is_printLog:
+        log.info("\t====== Analysis Completed ======")
     if global_params.STORE_RESULT:
         result_file = g_disasm_file.split('.evm.disasm')[0] + '.json'
         with open(result_file, 'w') as of:
@@ -2440,22 +2707,33 @@ def analyze():
 
     run_build_cfg_and_analyze(timeout_cb=timeout_cb)
 
-def run(disasm_file=None, source_file=None, source_map=None):
+# ** add by fcorleone the original line is like:
+# def run(disasm_file=None, source_file=None, source_map=None):
+# the all_contracts parameter is used to deal with the call operation;
+# the is_initCallVariable is a boolean variable to flag whether the call variable needs to be initialized
+def run(disasm_file=None, all_contracts=None, is_initCallVariable=True, is_printLog = True, source_file=None, source_map=None):
     global g_disasm_file
     global g_source_file
     global g_src_map
+# ** add by fcorleone add a global variable to store all contracts
+    global g_all_contracts
     global results
 
     g_disasm_file = disasm_file
     g_source_file = source_file
     g_src_map = source_map
-
+# ** add by fcorleone 
+    g_all_contracts = all_contracts
     if is_testing_evm():
         test()
     else:
         begin = time.time()
-        log.info("\t============ Results ===========")
+        if is_printLog:
+            log.info("\t============ Results ===========")
+        if(is_initCallVariable):
+            initGlobalCallVars()
         analyze()
-        ret = detect_vulnerabilities()
-        closing_message()
+        ret = detect_vulnerabilities(is_printLog)
+        closing_message(is_printLog)
         return ret
+
