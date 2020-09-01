@@ -23,6 +23,7 @@ from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
 from vulnerability import CallStack, TimeDependency, MoneyConcurrency, Reentrancy, AssertionFailure, ParityMultisigBug2, IntegerUnderflow, IntegerOverflow
 import global_params
 
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)  
 log = logging.getLogger(__name__)
 
 UNSIGNED_BOUND_NUMBER = 2**256 - 1
@@ -1027,7 +1028,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             else:
                 computed = (first - second) % (2 ** 256)
             computed = simplify(computed) if is_expr(computed) else computed
-
+            # log.warning('the first is %s and the second is %s',first,second)
             check_revert = False
             if jump_type[block] == 'conditional':
                 jump_target = vertices[block].get_jump_target()
@@ -1382,6 +1383,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+	    log.warning('EQ: the first is %s and the second is %s', first, second)
 	    # log.warning("EQ: first is %s and second is %s",first,second)
             if isAllReal(first, second):
                 if first == second:
@@ -2079,7 +2081,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             raise ValueError('STACK underflow')
     elif opcode == "CALL":
         # TODO: Need to handle miu_i
-        # log.warning("execution CALL")
+        log.warning("execution CALL")
         if len(stack) > 6:
 	    # log.warning("stack is %d",len(stack))
             calls.append(global_state["pc"])
@@ -2097,9 +2099,6 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             # in the paper, it is shaky when the size of data output is
             # min of stack[6] and the | o |
             if isReal(transfer_amount):
-                if transfer_amount == 0:
-                   stack.insert(0, 1)   # x = 0
-                   return
             # Let us ignore the call depth
                 balance_ia = global_state["balance"]["Ia"]
                 is_enough_fund = (transfer_amount <= balance_ia)
@@ -2141,7 +2140,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     target_inp = current_inp
                 # run the target function symboliclly
                 # log.warning('signature is %s', signature)
-                # log.warning('target contract is %s',target_inp['contract'])
+                log.warning('target contract is %s',target_inp['contract'])
                 _backup_state()
                 # return_code_call = 0
                 result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
@@ -2282,7 +2281,11 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 # opcode is RETURN
                 offset = stack.pop(0)
                 return_data_size = stack.pop(0)
+                # new_var_name = gen.gen_arbitrary_var()
+                # new_var = BitVec(new_var_name, 256)
                 return_data = mem[offset]
+                # log.warning('this is return %s',mem)
+                # return_data = new_var
             # TODO
             pass
         else:
