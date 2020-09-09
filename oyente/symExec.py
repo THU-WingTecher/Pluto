@@ -779,6 +779,9 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         return ["ERROR"]
 
     for instr in block_ins:
+        # log.warning("execute instruction:%s",instr)
+        # log.warning("the current memory is %s",mem)
+        # log.warning("the current stack is %s",stack)
         sym_exec_ins(params, block, instr, func_call, current_func_name)
 
     # Mark that this basic block in the visited blocks
@@ -1383,7 +1386,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
-	    log.warning('EQ: the first is %s and the second is %s', first, second)
+	    # log.warning('EQ: the first is %s and the second is %s', first, second)
 	    # log.warning("EQ: first is %s and second is %s",first,second)
             if isAllReal(first, second):
                 if first == second:
@@ -2081,9 +2084,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             raise ValueError('STACK underflow')
     elif opcode == "CALL":
         # TODO: Need to handle miu_i
-        log.warning("execution CALL")
+        # log.warning("execution CALL")
         if len(stack) > 6:
-	    # log.warning("stack is %d",len(stack))
+            # log.warning("stack is %d",len(stack))
             calls.append(global_state["pc"])
             for call_pc in calls:
                 if call_pc not in calls_affect_state:
@@ -2096,24 +2099,37 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             size_data_input = stack.pop(0)
             start_data_output = stack.pop(0)
             size_data_ouput = stack.pop(0)
+            # log.warning("parameters are %s , %s , %s , %s , %s , %s , %s ",str(outgas),str(recipient),str(transfer_amount),
+            # str(start_data_input),str(size_data_input),str(start_data_output),str(size_data_ouput))
             # in the paper, it is shaky when the size of data output is
             # min of stack[6] and the | o |
-            if isReal(transfer_amount):
+            # if isReal(transfer_amount):
+            # if isReal(transfer_amount):
+            #     if transfer_amount == 0:
+            #         stack.insert(0, 1)   # x = 0
+            #         return
             # Let us ignore the call depth
-                balance_ia = global_state["balance"]["Ia"]
-                is_enough_fund = (transfer_amount <= balance_ia)
-                solver.push()
-                solver.add(is_enough_fund)
+            balance_ia = global_state["balance"]["Ia"]
+            is_enough_fund = (transfer_amount <= balance_ia)
+            solver.push()
+            solver.add(is_enough_fund)
+            # log.warning("check_sat(solver) is %s",str(check_sat(solver)))
             if check_sat(solver) == unsat:
                 # this means not enough fund, thus the execution will result in exception
 		        solver.pop()
 		        stack.insert(0, 0)   # x = 0
+            elif size_data_input == 0:
+                # it is a address.transfer or address.sender call
+                solver.pop()
+                stack.insert(0,0)
             else:
                 # ** add by fcorleone, here we need to store the current state
                 # except for the variables related to msg, that is :
                 # start_data_input, size_data_input, start_data_output and size_data_output
-                
+                # log.warning("we are in else")
                 call_data = mem[start_data_input]
+                # log.warning("call_data is %s",str(call_data))
+                # log.warning("memory is %s",str(mem))
                 # store the msg.data for calling functions
                 msg_data = call_data
                 call_data_16 = str(hex(call_data))
@@ -2140,14 +2156,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     target_inp = current_inp
                 # run the target function symboliclly
                 # log.warning('signature is %s', signature)
-                log.warning('target contract is %s',target_inp['contract'])
+                # log.warning('target contract is %s',target_inp['contract'])
                 _backup_state()
                 # return_code_call = 0
                 result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
                                 is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
                 # load the backup state
                 _load_state()
-                # log.warning('return_data_size is %s',return_data_size)
+                # log.warning('return_code_call is %s',str(return_code_call))
                 if return_code_call != 0:
                     solver.pop()
                     stack.insert(0, 0)
@@ -2540,6 +2556,7 @@ def detect_vulnerabilities(is_printLog=True):
 
     if instructions:
         evm_code_coverage = float(len(visited_pcs)) / len(instructions.keys()) * 100
+        # log.warning("visited_pcs and instructions keys are %s, %s", str(len(visited_pcs)),str(len(instructions.keys())))
         if is_printLog:
             log.info("\t  EVM Code Coverage: \t\t\t %s%%", round(evm_code_coverage, 1))
         results["evm_code_coverage"] = str(round(evm_code_coverage, 1))
