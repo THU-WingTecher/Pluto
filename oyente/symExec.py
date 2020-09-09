@@ -1564,6 +1564,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             if msg_data != None:
                 # log.warning("msg_data is %s",msg_data)
                 stack.insert(0,msg_data)
+                msg_data = None
             else:
                 if g_src_map:
                     source_code = g_src_map.get_source_code(global_state['pc'] - 1)
@@ -2115,6 +2116,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
             solver.add(is_enough_fund)
             # log.warning("check_sat(solver) is %s",str(check_sat(solver)))
             if check_sat(solver) == unsat:
+		        # log.warning("we are in if")
                 # this means not enough fund, thus the execution will result in exception
 		        solver.pop()
 		        stack.insert(0, 0)   # x = 0
