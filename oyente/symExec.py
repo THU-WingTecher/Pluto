@@ -69,7 +69,7 @@ def initGlobalCallVars():
 
     size_data_input = 0
     return_data_size = 0
-    return_data = None
+    return_data = []
     backup_state = None
     msg_data = None
 
@@ -99,7 +99,7 @@ def initGlobalVars():
         disasm = f.read()
     if 'MSIZE' in disasm:
         MSIZE = True
-
+    global g_bin_disasm_file
     global g_timeout
     g_timeout = False
 
@@ -205,6 +205,7 @@ def _backup_state():
     global MSIZE
     global revertible_overflow_pcs
     global g_disasm_file
+    global g_bin_disasm_file
     global g_timeout
     global visited_pcs
     global results
@@ -232,6 +233,7 @@ def _backup_state():
         'MSIZE':MSIZE,
         'revertible_overflow_pcs':revertible_overflow_pcs,
         'g_disasm_file':g_disasm_file,
+        'g_bin_disasm_file':g_bin_disasm_file,
         'g_timeout':g_timeout,
         'visited_pcs':visited_pcs,
         'results':results,
@@ -290,6 +292,7 @@ def _load_state():
     global MSIZE
     global revertible_overflow_pcs
     global g_disasm_file
+    global g_bin_disasm_file
     global g_timeout
     global visited_pcs
     global results
@@ -317,6 +320,7 @@ def _load_state():
     MSIZE = backup_state['MSIZE']
     revertible_overflow_pcs = backup_state['revertible_overflow_pcs']
     g_disasm_file = backup_state['g_disasm_file']
+    g_bin_disasm_file = backup_state['g_bin_disasm_file']
     g_timeout = backup_state['g_timeout']
     visited_pcs = backup_state['visited_pcs']
     results = backup_state['results']
@@ -380,7 +384,7 @@ def change_format():
     with open(g_disasm_file, 'w') as disasm_file:
         disasm_file.write("\n".join(file_contents))
 
-def build_cfg_and_analyze():
+def build_cfg_and_analyze(is_printLog):
     change_format()
     with open(g_disasm_file, 'r') as disasm_file:
         disasm_file.readline()  # Remove first line
@@ -388,7 +392,7 @@ def build_cfg_and_analyze():
         collect_vertices(tokens)
         construct_bb()
         construct_static_edges()
-        full_sym_exec()  # jump targets are constructed on the fly
+        full_sym_exec(is_printLog)  # jump targets are constructed on the fly
 
 def print_cfg():
     for block in vertices.values():
@@ -698,15 +702,37 @@ def get_start_block_to_func_sig():
             state = 0
     return start_block_to_func_sig
 
-def full_sym_exec():
+def full_sym_exec(is_printLog):
     # executing, starting from beginning
     path_conditions_and_vars = {"path_condition" : []}
     global_state = get_init_global_state(path_conditions_and_vars)
+    # log.warning("*********************")
+    # log.warning(global_state["Ia"])
+    if not is_printLog:
+        # store the initial value of contract variables in storage
+        with open(g_bin_disasm_file, 'r') as bin_disasm_file:
+            lines = bin_disasm_file.readlines()
+            for line_no in range(len(lines)):
+                if 'SSTORE' in lines[line_no]:
+                    #  here we find the SSTORE and we need to store the value into storage
+                    address_stm = lines[line_no-1]
+                    value_stm = lines[line_no-2]
+                    addr = ''
+                    value = ''
+                    if 'PUSH' in value_stm:
+                        value = value_stm.split(' ')[-1].strip()
+                    if 'PUSH' in address_stm:
+                        addr = address_stm.split(' ')[-1].strip()
+                    elif 'DUP' in address_stm:
+                        addr = value
+                    global_state["Ia"][int(addr,16)] = int(value,16)
+                    # print(int(addr,16),int(value,16))
+    log.warning(global_state['Ia'])
     analysis = init_analysis()
     params = Parameter(path_conditions_and_vars=path_conditions_and_vars, global_state=global_state, analysis=analysis)
     if g_src_map:
         start_block_to_func_sig = get_start_block_to_func_sig()
-    return sym_exec_block(params, 0, 0, 0, -1, 'fallback')
+    return sym_exec_block(params, 0, 0, 0, -1, 'fallback',is_printLog)
 
 # ** add by fcorleone
 # def a function to execute called contract when CALL opcode is encountered
@@ -718,7 +744,7 @@ def full_sym_exec_call(path_conditions_and_vars={"path_condition" : []}):
     path_conditions_and_vars = path_conditions_and_vars
 
 # Symbolically executing a block from the start address
-def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name):
+def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name,is_printLog=True):
     global solver
     global visited_edges
     global money_flow_all_paths
@@ -727,7 +753,6 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     global all_gs
     global results
     global g_src_map
-
     visited = params.visited
     stack = params.stack
     mem = params.mem
@@ -780,9 +805,10 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
 
     for instr in block_ins:
         # log.warning("execute instruction:%s",instr)
+        # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
-        sym_exec_ins(params, block, instr, func_call, current_func_name)
+        sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog)
 
     # Mark that this basic block in the visited blocks
     visited.append(block)
@@ -830,12 +856,12 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
             source_code = g_src_map.get_source_code(global_state['pc'])
             if source_code in g_src_map.func_call_names:
                 func_call = global_state['pc']
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
     elif jump_type[block] == "falls_to":  # just follow to the next basic block
         successor = vertices[block].get_falls_to()
         new_params = params.copy()
         new_params.global_state["pc"] = successor
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
     elif jump_type[block] == "conditional":  # executing "JUMPI"
 
         # A choice point, we proceed with depth first search
@@ -857,7 +883,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 new_params.path_conditions_and_vars["path_condition"].append(branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
-                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name)
+                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name,is_printLog)
         except TimeoutError:
             raise
         except Exception as e:
@@ -885,7 +911,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 new_params.path_conditions_and_vars["path_condition"].append(negated_branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
-                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name)
+                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
         except TimeoutError:
             raise
         except Exception as e:
@@ -901,7 +927,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
 
 
 # Symbolically executing an instruction
-def sym_exec_ins(params, block, instr, func_call, current_func_name):
+def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=True):
     global MSIZE
     global visited_pcs
     global solver
@@ -2161,7 +2187,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 # log.warning('target contract is %s',target_inp['contract'])
                 _backup_state()
                 # return_code_call = 0
-                result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
+                result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], bin_disasm_file=target_inp['bin_disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
                                 is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
                 # load the backup state
                 _load_state()
@@ -2174,13 +2200,29 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                     # TODO: the return value is success, what's next
                     stack.insert(0, 1)   # x = 1
                     # add the return data to memory
-                    mem[start_data_output] = return_data
+                    new_var_name = gen.gen_arbitrary_var()
+                    new_var = BitVec(new_var_name, 256)
+
+                    path_conditions_and_vars[new_var_name] = new_var
+                    # print solver
+                    # print return_data
+                    # mem[start_data_output] = return_data
+                    # print solver
+                    mem[start_data_output] = new_var
                     # log.warning(mem) 
 
                     solver.pop()
                     solver.add(is_enough_fund)
                     path_conditions_and_vars["path_condition"].append(is_enough_fund)
                     last_idx = len(path_conditions_and_vars["path_condition"]) - 1
+
+                    constraint = (0 == 1)
+                    if return_data != None:
+                        for returnV in return_data:
+                            constraint = Or(constraint,new_var == returnV)
+                        solver.add(constraint)
+                        path_conditions_and_vars["path_condition"].append(constraint)
+
                     analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
                     new_balance_ia = (balance_ia - transfer_amount)
                     global_state["balance"]["Ia"] = new_balance_ia
@@ -2301,8 +2343,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name):
                 return_data_size = stack.pop(0)
                 # new_var_name = gen.gen_arbitrary_var()
                 # new_var = BitVec(new_var_name, 256)
-                return_data = mem[offset]
-                # log.warning('this is return %s',mem)
+                if not is_printLog:
+                    return_data.append(mem[offset])
+                # log.warning('this is return %s',mem[offset])
                 # return_data = new_var
             # TODO
             pass
@@ -2681,13 +2724,13 @@ class Timeout:
 def do_nothing():
     pass
 
-def run_build_cfg_and_analyze(timeout_cb=do_nothing):
+def run_build_cfg_and_analyze(timeout_cb=do_nothing, is_printLog=True):
     initGlobalVars()
     global g_timeout
 
     try:
         with Timeout(sec=global_params.GLOBAL_TIMEOUT):
-            build_cfg_and_analyze()
+            build_cfg_and_analyze(is_printLog)
         log.debug('Done Symbolic execution')
     except TimeoutError:
         g_timeout = True
@@ -2725,19 +2768,20 @@ def test():
 
     run_build_cfg_and_analyze(timeout_cb=timeout_cb)
 
-def analyze():
+def analyze(is_printLog):
     def timeout_cb():
         if global_params.DEBUG_MODE:
             traceback.print_exc()
 
-    run_build_cfg_and_analyze(timeout_cb=timeout_cb)
+    run_build_cfg_and_analyze(timeout_cb, is_printLog)
 
 # ** add by fcorleone the original line is like:
 # def run(disasm_file=None, source_file=None, source_map=None):
 # the all_contracts parameter is used to deal with the call operation;
 # the is_initCallVariable is a boolean variable to flag whether the call variable needs to be initialized
-def run(disasm_file=None, all_contracts=None, is_initCallVariable=True, is_printLog = True, source_file=None, source_map=None):
+def run(disasm_file=None, bin_disasm_file=None, all_contracts=None, is_initCallVariable=True, is_printLog = True, source_file=None, source_map=None):
     global g_disasm_file
+    global g_bin_disasm_file
     global g_source_file
     global g_src_map
 # ** add by fcorleone add a global variable to store all contracts
@@ -2745,6 +2789,7 @@ def run(disasm_file=None, all_contracts=None, is_initCallVariable=True, is_print
     global results
 
     g_disasm_file = disasm_file
+    g_bin_disasm_file = bin_disasm_file
     g_source_file = source_file
     g_src_map = source_map
 # ** add by fcorleone 
@@ -2757,7 +2802,7 @@ def run(disasm_file=None, all_contracts=None, is_initCallVariable=True, is_print
             log.info("\t============ Results ===========")
         if(is_initCallVariable):
             initGlobalCallVars()
-        analyze()
+        analyze(is_printLog)
         ret = detect_vulnerabilities(is_printLog)
         closing_message(is_printLog)
         return ret

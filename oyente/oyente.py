@@ -86,7 +86,7 @@ def run_solidity_analysis(inputs):
         logging.info("contract %s:", inp['contract'])
         # **add by fcorleone
         # **here we get all the input contracts and inputs is added as a parameter into the run function
-        result, return_code = symExec.run(disasm_file=inp['disasm_file'], all_contracts=inputs, source_map=inp['source_map'], source_file=inp['source'])
+        result, return_code = symExec.run(disasm_file=inp['disasm_file'], bin_disasm_file=inp['bin_disasm_file'], all_contracts=inputs, source_map=inp['source_map'], source_file=inp['source'])
         # **this is the original line:
         # result, return_code = symExec.run(disasm_file=inp['disasm_file'], source_map=inp['source_map'], source_file=inp['source'])
 

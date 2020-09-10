@@ -29,6 +29,7 @@ class InputHelper:
                 'evm': False,
                 'root_path': "",
                 'compiled_contracts': [],
+                'compiled_contracts_bin':[],
                 'compilation_err': False,
                 'remap': "",
                 'allow_paths': ""
@@ -39,7 +40,8 @@ class InputHelper:
                 'evm': False,
                 'root_path': "",
                 'allow_paths': None,
-                'compiled_contracts': []
+                'compiled_contracts': [],
+                'compiled_contracts_bin':[]
             }
         elif input_type == InputHelper.STANDARD_JSON_OUTPUT:
             attr_defaults = {
@@ -47,6 +49,7 @@ class InputHelper:
                 'evm': False,
                 'root_path': "",
                 'compiled_contracts': [],
+                'compiled_contracts_bin':[]
             }
 
         for (attr, default) in six.iteritems(attr_defaults):
@@ -67,7 +70,10 @@ class InputHelper:
             inputs.append({'disasm_file': disasm_file})
         else:
             contracts = self._get_compiled_contracts()
+            contracts_bin = self._get_compiled_contracts_bin()
+            # logging.critical(contracts_bin)
             self._prepare_disasm_files_for_analysis(contracts)
+            self._prepare_bin_disasm_files_for_analysis(contracts_bin,contracts)
             for contract, _ in contracts:
                 c_source, cname = contract.split(':')
                 if targetContracts is not None and cname not in targetContracts:
@@ -78,13 +84,15 @@ class InputHelper:
                 else:
                     source_map = SourceMap(contract, self.source, 'standard json', self.root_path)
                 disasm_file = self._get_temporary_files(contract)['disasm']
+                bin_disasm_file = self._get_temporary_files(contract)['bin_disasm']
                 inputs.append({
                     'contract': contract,
                     'source_map': source_map,
                     'source': self.source,
                     'c_source': c_source,
                     'c_name': cname,
-                    'disasm_file': disasm_file
+                    'disasm_file': disasm_file,
+                    'bin_disasm_file': bin_disasm_file
                 })
         if targetContracts is not None and not inputs:
             raise ValueError("Targeted contracts weren't found in the source code!")
@@ -107,6 +115,17 @@ class InputHelper:
 
         return self.compiled_contracts
 
+    def _get_compiled_contracts_bin(self):
+        if not self.compiled_contracts_bin:
+            if self.input_type == InputHelper.SOLIDITY:
+                self.compiled_contracts_bin = self._compile_solidity_bin()
+            elif self.input_type == InputHelper.STANDARD_JSON:
+                self.compiled_contracts_bin = self._compile_standard_json()
+            elif self.input_type == InputHelper.STANDARD_JSON_OUTPUT:
+                self.compiled_contracts_bin = self._compile_standard_json_output(self.source)
+
+        return self.compiled_contracts_bin
+
     def _compile_solidity(self):
         if not self.allow_paths:
             cmd = "solc --bin-runtime %s %s" % (self.remap, self.source)
@@ -122,9 +141,27 @@ class InputHelper:
         libs = re.findall(r"_+(.*?)_+", out)
         libs = set(libs)
         if libs:
-            return self._link_libraries(self.source, libs)
+            return self._link_libraries(self.source, libs,False)
         else:
-            return self._extract_bin_str(out, err)
+            return self._extract_bin_str(out, err, False)
+    def _compile_solidity_bin(self):
+        if not self.allow_paths:
+            cmd = "solc --bin %s %s" % (self.remap, self.source)
+        else:
+            cmd = "solc --bin %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
+        err = ''
+        if self.compilation_err:
+            out, err = run_command_with_err(cmd)
+            err = re.sub(self.root_path, "", err)
+        else:
+            out = run_command(cmd)
+
+        libs = re.findall(r"_+(.*?)_+", out)
+        libs = set(libs)
+        if libs:
+            return self._link_libraries(self.source, libs, True)
+        else:
+            return self._extract_bin_str(out, err, True)
 
     def _compile_standard_json(self):
         FNULL = open(os.devnull, 'w')
@@ -155,8 +192,11 @@ class InputHelper:
         evm_without_hash = re.sub(r"a165627a7a72305820\S{64}0029$", "", evm)
         return evm_without_hash
 
-    def _extract_bin_str(self, s, err=''):
-        binary_regex = r"\n======= (.*?) =======\nBinary of the runtime part: \n(.*?)\n"
+    def _extract_bin_str(self, s, err='',isbin=False):
+        if not isbin:
+            binary_regex = r"\n======= (.*?) =======\nBinary of the runtime part: \n(.*?)\n"
+        else:
+            binary_regex = r"\n======= (.*?) =======\nBinary: \n(.*?)\n"
         contracts = re.findall(binary_regex, s)
         contracts = [contract for contract in contracts if contract[1]]
         if not contracts:
@@ -174,40 +214,65 @@ class InputHelper:
             exit(1)
         return contracts
 
-    def _link_libraries(self, filename, libs):
+    def _link_libraries(self, filename, libs, isbin):
         option = ""
         for idx, lib in enumerate(libs):
             lib_address = "0x" + hex(idx+1)[2:].zfill(40)
             option += " --libraries %s:%s" % (lib, lib_address)
         FNULL = open(os.devnull, 'w')
         if not self.allow_paths:
-            cmd = "solc --bin-runtime %s %s" % (self.remap, self.source)
+            if not isbin:
+                cmd = "solc --bin-runtime %s %s" % (self.remap, self.source)
+            else:
+                cmd = "solc --bin %s %s" % (self.remap, self.source)
         else:
-            cmd = "solc --bin-runtime %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
+            if not isbin:
+                cmd = "solc --bin-runtime %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
+            else:
+                cmd = "solc --bin %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
         p1 = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=FNULL)
         cmd = "solc --link%s" %option
         p2 = subprocess.Popen(shlex.split(cmd), stdin=p1.stdout, stdout=subprocess.PIPE, stderr=FNULL)
         p1.stdout.close()
         out = p2.communicate()[0].decode('utf-8', 'strict')
-        return self._extract_bin_str(out)
+        return self._extract_bin_str(out,isbin)
 
     def _prepare_disasm_files_for_analysis(self, contracts):
         for contract, bytecode in contracts:
             self._prepare_disasm_file(contract, bytecode)
 
+    def _prepare_bin_disasm_files_for_analysis(self, contracts,runtime_contracts):
+        run_bin = {}
+        for contract_r, bytecode_r in runtime_contracts:
+            run_bin[contract_r] = bytecode_r
+        for contract, bytecode in contracts:
+            self._prepare_bin_disasm_file(contract, bytecode, run_bin[contract])
+
     def _prepare_disasm_file(self, target, bytecode):
         self._write_evm_file(target, bytecode)
         self._write_disasm_file(target)
+
+    def _prepare_bin_disasm_file(self, target, bytecode, run_bin):
+        self._write_bin_evm_file(target, bytecode, run_bin)
+        self._write_bin_disasm_file(target)
 
     def _get_temporary_files(self, target):
         return {
             "evm": target + ".evm",
             "disasm": target + ".evm.disasm",
-            "log": target + ".evm.disasm.log"
+            "log": target + ".evm.disasm.log",
+            "bin_evm": target + ".binevm",
+            "bin_disasm": target + ".bindisasm"
         }
 
     def _write_evm_file(self, target, bytecode):
         evm_file = self._get_temporary_files(target)["evm"]
+        with open(evm_file, 'w') as of:
+            of.write(self._removeSwarmHash(bytecode))
+    
+    def _write_bin_evm_file(self, target, bytecode, run_bin):
+        bytecode = bytecode.replace(run_bin,'')
+        evm_file = self._get_temporary_files(target)["bin_evm"]
         with open(evm_file, 'w') as of:
             of.write(self._removeSwarmHash(bytecode))
 
@@ -224,6 +289,22 @@ class InputHelper:
             logging.critical("Disassembly failed.")
             exit()
 
+        with open(disasm_file, 'w') as of:
+            of.write(disasm_out)
+
+    def _write_bin_disasm_file(self, target):
+        tmp_files = self._get_temporary_files(target)
+        evm_file = tmp_files["bin_evm"]
+        disasm_file = tmp_files["bin_disasm"]
+        disasm_out = ""
+        try:
+            disasm_p = subprocess.Popen(
+                ["evm", "disasm", evm_file], stdout=subprocess.PIPE)
+            disasm_out = disasm_p.communicate()[0].decode('utf-8', 'strict')
+        except:
+            logging.critical("Disassembly failed.")
+            exit()
+        # logging.critical(disasm_out)
         with open(disasm_file, 'w') as of:
             of.write(disasm_out)
 
