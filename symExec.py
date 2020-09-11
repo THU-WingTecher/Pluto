@@ -64,12 +64,14 @@ def initGlobalCallVars():
     global msg_data
     global return_data_size
     global return_data
+    global return_symbol_cons
     # here we add a global variable to store all the global state
     global backup_state # !!!important
 
     size_data_input = 0
     return_data_size = 0
     return_data = []
+    return_symbol_cons = {}
     backup_state = None
     msg_data = None
 
@@ -944,6 +946,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
     global g_all_contracts
     global return_data_size
     global return_data
+    global return_symbol_cons
 
     stack = params.stack
     mem = params.mem
@@ -2219,7 +2222,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     constraint = (0 == 1)
                     if return_data != None:
                         for returnV in return_data:
-                            constraint = Or(constraint,new_var == returnV)
+                            if(isReal(returnV)):
+                                constraint = Or(constraint,new_var == returnV)
+                            else:
+                                newconstraint = (1 == 1)
+                                for cons in return_symbol_cons[str(returnV)]:
+                                    newconstraint = And(new_var == returnV, cons)
+                                constraint = Or(constraint, newconstraint)
                         solver.add(constraint)
                         path_conditions_and_vars["path_condition"].append(constraint)
 
@@ -2344,7 +2353,17 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 # new_var_name = gen.gen_arbitrary_var()
                 # new_var = BitVec(new_var_name, 256)
                 if not is_printLog:
-                    return_data.append(mem[offset])
+                    # print mem[offset]
+                    if(not isReal(mem[offset])):
+                        for c in solver.assertions():
+                            # print(str(c))
+                            if str(mem[offset]) in str(c):
+                                # print return_symbol_cons
+                                if not return_symbol_cons.has_key(str(mem[offset])):
+                                    return_symbol_cons[str(mem[offset])]=[]
+                                return_symbol_cons[str(mem[offset])].append(c)
+                    if mem[offset] not in return_data:
+                        return_data.append(mem[offset])
                 # log.warning('this is return %s',mem[offset])
                 # return_data = new_var
             # TODO
