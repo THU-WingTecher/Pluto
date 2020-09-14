@@ -729,7 +729,7 @@ def full_sym_exec(is_printLog):
                         addr = value
                     global_state["Ia"][int(addr,16)] = int(value,16)
                     # print(int(addr,16),int(value,16))
-    log.warning(global_state['Ia'])
+    # log.warning(global_state['Ia'])
     analysis = init_analysis()
     params = Parameter(path_conditions_and_vars=path_conditions_and_vars, global_state=global_state, analysis=analysis)
     if g_src_map:
@@ -1022,12 +1022,15 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
 
             if jump_type[block] != 'conditional' or not check_revert:
                 if not isAllReal(computed, first):
-                    solver.push()
-                    solver.add(UGT(first, computed))
-                    if check_sat(solver) == sat:
-                        global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
+                    # solver.push()
+                    s1 = Solver()
+                    for c in solver.assertions():
+                        s1.add(c)
+                    s1.add(UGT(first, computed))
+                    if check_sat(s1) == sat:
+                        global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, s1.model()))
                         overflow_pcs.append(global_state['pc'] - 1)
-                    solver.pop()
+                    # solver.pop()
 
             stack.insert(0, computed)
         else:
@@ -2225,11 +2228,23 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                             if(isReal(returnV)):
                                 constraint = Or(constraint,new_var == returnV)
                             else:
-                                newconstraint = (1 == 1)
+                                newconstraint = (new_var == returnV)
+                                solver.add(newconstraint)
+                                new1 = (0 == 0)
+                                # print return_symbol_cons
                                 for cons in return_symbol_cons[str(returnV)]:
-                                    newconstraint = And(new_var == returnV, cons)
-                                constraint = Or(constraint, newconstraint)
+                                    new1 = And(new1, cons)
+                                    # solver.push()
+                                    # solver.add(cons)
+                                    # ret = solver.check()
+                                    # print solver
+                                    # print ret
+                                    # solver.pop()
+                                    # print newconstraint
+                                
+                                constraint = Or(constraint, new1)
                         solver.add(constraint)
+                        # print solver
                         path_conditions_and_vars["path_condition"].append(constraint)
 
                     analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
@@ -2240,6 +2255,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     boolean_expression = (recipient != address_is)
                     solver.push()
                     solver.add(boolean_expression)
+                    # print(solver)
                     if check_sat(solver) == unsat:
                         solver.pop()
                         new_balance_is = (global_state["balance"]["Is"] + transfer_amount)
@@ -2355,13 +2371,16 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 if not is_printLog:
                     # print mem[offset]
                     if(not isReal(mem[offset])):
+                        # print mem[offset]
                         for c in solver.assertions():
+                            # print('**************')
                             # print(str(c))
-                            if str(mem[offset]) in str(c):
-                                # print return_symbol_cons
+                            if str(mem[offset]) in str(c) or 'currentTarget' in str(c):
+                                
                                 if not return_symbol_cons.has_key(str(mem[offset])):
                                     return_symbol_cons[str(mem[offset])]=[]
                                 return_symbol_cons[str(mem[offset])].append(c)
+                        # print return_symbol_cons
                     if mem[offset] not in return_data:
                         return_data.append(mem[offset])
                 # log.warning('this is return %s',mem[offset])
