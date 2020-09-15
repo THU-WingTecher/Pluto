@@ -721,12 +721,18 @@ def full_sym_exec(is_printLog):
                     value_stm = lines[line_no-2]
                     addr = ''
                     value = ''
+                    # print value_stm
                     if 'PUSH' in value_stm:
                         value = value_stm.split(' ')[-1].strip()
+                    else: 
+                        continue
                     if 'PUSH' in address_stm:
                         addr = address_stm.split(' ')[-1].strip()
                     elif 'DUP' in address_stm:
                         addr = value
+                    else:
+                        continue
+                    # print type(value)
                     global_state["Ia"][int(addr,16)] = int(value,16)
                     # print(int(addr,16),int(value,16))
     # log.warning(global_state['Ia'])
@@ -805,12 +811,15 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         log.debug("This path results in an exception, possibly an invalid jump address")
         return ["ERROR"]
 
+    # print(block_ins)
     for instr in block_ins:
         # log.warning("execute instruction:%s",instr)
         # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
         sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog)
+        
+        # print stack
 
     # Mark that this basic block in the visited blocks
     visited.append(block)
@@ -869,12 +878,12 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         # A choice point, we proceed with depth first search
 
         branch_expression = vertices[block].get_branch_expression()
-
+        
         log.debug("Branch expression: " + str(branch_expression))
 
         solver.push()  # SET A BOUNDARY FOR SOLVER
         solver.add(branch_expression)
-
+        # print branch_expression
         try:
             if solver.check() == unsat:
                 log.debug("INFEASIBLE PATH DETECTED")
@@ -891,7 +900,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         except Exception as e:
             if global_params.DEBUG_MODE:
                 traceback.print_exc()
-
+        # print solver
         solver.pop()  # POP SOLVER CONTEXT
 
         solver.push()  # SET A BOUNDARY FOR SOLVER
@@ -913,6 +922,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 new_params.path_conditions_and_vars["path_condition"].append(negated_branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
+                # print 'execute right !!!!!'
                 sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
         except TimeoutError:
             raise
@@ -2016,20 +2026,24 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
     elif opcode == "JUMPI":
         # We need to prepare two branches
         if len(stack) > 1:
+            # print stack
             target_address = stack.pop(0)
             if isSymbolic(target_address):
                 try:
                     target_address = int(str(simplify(target_address)))
                 except:
                     raise TypeError("Target address must be an integer")
+            # print 'target address is **'+str(target_address)
             vertices[block].set_jump_target(target_address)
             flag = stack.pop(0)
             branch_expression = (BitVecVal(0, 1) == BitVecVal(1, 1))
+            # print flag
             if isReal(flag):
                 if flag != 0:
                     branch_expression = True
             else:
                 branch_expression = (flag != 0)
+            # print solver
             vertices[block].set_branch_expression(branch_expression)
             if target_address not in edges[block]:
                 edges[block].append(target_address)
@@ -2152,78 +2166,88 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 # this means not enough fund, thus the execution will result in exception
 		        solver.pop()
 		        stack.insert(0, 0)   # x = 0
-            elif size_data_input == 0:
-                # it is a address.transfer or address.sender call
-                solver.pop()
-                stack.insert(0,0)
+            # elif size_data_input == 0:
+            #     # it is a address.transfer or address.sender call
+            #     solver.pop()
+            #     stack.insert(0,1)
             else:
-                # ** add by fcorleone, here we need to store the current state
-                # except for the variables related to msg, that is :
-                # start_data_input, size_data_input, start_data_output and size_data_output
-                # log.warning("we are in else")
-                call_data = mem[start_data_input]
-                # log.warning("call_data is %s",str(call_data))
-                # log.warning("memory is %s",str(mem))
-                # store the msg.data for calling functions
-                msg_data = call_data
-                call_data_16 = str(hex(call_data))
-                # get the signature of the called function
-                signature = call_data_16[2:10]
-                # search for the first contract which has the called function
                 target_inp = None
-                current_inp = None
-                own_function = False
-                for inp in g_all_contracts:
-                    disasm_f = inp['disasm_file']
-                    # if the current contract has the function then search for the other contract first
-                    if disasm_f == g_disasm_file:
-                        own_function = True
-                        current_inp = inp
-                        continue
-                    with open(disasm_f, 'r') as f:
-                        disasm_content = f.read()
-                        if signature in disasm_content:
-                            target_inp = inp
-                            break
-                if own_function and target_inp == None:
-                    # this means the only function can be called is clearin the current contract
-                    target_inp = current_inp
-                # run the target function symboliclly
-                # log.warning('signature is %s', signature)
-                # log.warning('target contract is %s',target_inp['contract'])
-                _backup_state()
-                # return_code_call = 0
-                result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], bin_disasm_file=target_inp['bin_disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
-                                is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
-                # load the backup state
-                _load_state()
+                return_code_call = -1
+                if size_data_input != 0:
+                    # ** add by fcorleone, here we need to store the current state
+                    # except for the variables related to msg, that is :
+                    # start_data_input, size_data_input, start_data_output and size_data_output
+                    # log.warning("we are in else")
+                    call_data = mem[start_data_input]
+                    # log.warning("call_data is %s",str(call_data))
+                    # log.warning("memory is %s",str(mem))
+                    # store the msg.data for calling functions
+                    msg_data = call_data
+                    call_data_16 = str(hex(call_data))
+                    # get the signature of the called function
+                    signature = call_data_16[2:10]
+                    # search for the first contract which has the called function
+                    
+                    current_inp = None
+                    own_function = False
+                    for inp in g_all_contracts:
+                        disasm_f = inp['disasm_file']
+                        # if the current contract has the function then search for the other contract first
+                        
+                        with open(disasm_f, 'r') as f:
+                            disasm_content = f.read()
+                            if signature in disasm_content:
+                                if disasm_f == g_disasm_file:
+                                    # own_function = True
+                                    # current_inp = inp
+                                    continue
+                                target_inp = inp
+                                break
+                    # if own_function and target_inp == None:
+                    #     # this means the only function can be called is clearin the current contract
+                    #     target_inp = current_inp
+                    # run the target function symboliclly
+                    # log.warning('signature is %s', signature)
+                    # log.warning('target contract is %s',target_inp['contract'])
+                if target_inp != None:
+                    solver.pop()
+                    _backup_state()
+                    # return_code_call = 0
+                    result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], bin_disasm_file=target_inp['bin_disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
+                                    is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
+                    # load the backup state
+                    _load_state()
+                    solver.push()
                 # log.warning('return_code_call is %s',str(return_code_call))
-                if return_code_call != 0:
+                if target_inp != None and return_code_call != 0:
                     solver.pop()
                     stack.insert(0, 0)
                 else:
                     # the execution is possibly okay
-                    # TODO: the return value is success, what's next
                     stack.insert(0, 1)   # x = 1
-                    # add the return data to memory
-                    new_var_name = gen.gen_arbitrary_var()
-                    new_var = BitVec(new_var_name, 256)
+                    # TODO: the return value is success, what's next
+                    if target_inp != None:
+                        # add the return data to memory
+                        new_var_name = gen.gen_arbitrary_var()
+                        new_var = BitVec(new_var_name, 256)
 
-                    path_conditions_and_vars[new_var_name] = new_var
-                    # print solver
-                    # print return_data
-                    # mem[start_data_output] = return_data
-                    # print solver
-                    mem[start_data_output] = new_var
-                    # log.warning(mem) 
+                        path_conditions_and_vars[new_var_name] = new_var
+                        # print solver
+                        # print return_data
+                        # mem[start_data_output] = return_data
+                        # print solver
+                        mem[start_data_output] = new_var
+                        # log.warning(mem) 
 
                     solver.pop()
+                    
                     solver.add(is_enough_fund)
                     path_conditions_and_vars["path_condition"].append(is_enough_fund)
                     last_idx = len(path_conditions_and_vars["path_condition"]) - 1
 
                     constraint = (0 == 1)
-                    if return_data != None:
+                    if len(return_data) != 0:
+                        # print return_data
                         for returnV in return_data:
                             if(isReal(returnV)):
                                 constraint = Or(constraint,new_var == returnV)
@@ -2246,7 +2270,6 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                         solver.add(constraint)
                         # print solver
                         path_conditions_and_vars["path_condition"].append(constraint)
-
                     analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
                     new_balance_ia = (balance_ia - transfer_amount)
                     global_state["balance"]["Ia"] = new_balance_ia

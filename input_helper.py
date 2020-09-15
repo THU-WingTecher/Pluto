@@ -193,11 +193,13 @@ class InputHelper:
         return evm_without_hash
 
     def _extract_bin_str(self, s, err='',isbin=False):
+        # print isbin
         if not isbin:
             binary_regex = r"\n======= (.*?) =======\nBinary of the runtime part: \n(.*?)\n"
         else:
             binary_regex = r"\n======= (.*?) =======\nBinary: \n(.*?)\n"
         contracts = re.findall(binary_regex, s)
+        # print binary_regex
         contracts = [contract for contract in contracts if contract[1]]
         if not contracts:
             if not self.compilation_err:
@@ -230,12 +232,14 @@ class InputHelper:
                 cmd = "solc --bin-runtime %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
             else:
                 cmd = "solc --bin %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
+        # print cmd
         p1 = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=FNULL)
         cmd = "solc --link%s" %option
         p2 = subprocess.Popen(shlex.split(cmd), stdin=p1.stdout, stdout=subprocess.PIPE, stderr=FNULL)
         p1.stdout.close()
         out = p2.communicate()[0].decode('utf-8', 'strict')
-        return self._extract_bin_str(out,isbin)
+        # print isbin
+        return self._extract_bin_str(out,isbin=isbin)
 
     def _prepare_disasm_files_for_analysis(self, contracts):
         for contract, bytecode in contracts:
