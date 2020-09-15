@@ -1033,10 +1033,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             if jump_type[block] != 'conditional' or not check_revert:
                 if not isAllReal(computed, first):
                     # solver.push()
+                    # print('we are here')
                     s1 = Solver()
+                    s1.set("timeout", global_params.TIMEOUT)
                     for c in solver.assertions():
                         s1.add(c)
                     s1.add(UGT(first, computed))
+                    # print s1
                     if check_sat(s1) == sat:
                         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, s1.model()))
                         overflow_pcs.append(global_state['pc'] - 1)
