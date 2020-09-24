@@ -11,6 +11,7 @@ import signal
 import time
 import logging
 import six
+import time
 from collections import namedtuple
 from z3 import *
 
@@ -898,13 +899,14 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 new_params.path_conditions_and_vars["path_condition"].append(branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
+                solver.pop()
                 sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name,is_printLog)
+                solver.push()
         except TimeoutError:
             raise
         except Exception as e:
             if global_params.DEBUG_MODE:
                 traceback.print_exc()
-        # print solver
         solver.pop()  # POP SOLVER CONTEXT
 
         solver.push()  # SET A BOUNDARY FOR SOLVER
@@ -929,7 +931,9 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
                 # print 'execute right !!!!!'
+                solver.pop()
                 sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
+                solver.push()
         except TimeoutError:
             raise
         except Exception as e:
@@ -1041,39 +1045,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 if not isAllReal(computed, first):
                     solver.push()
                     solver.add(UGT(first, computed))
-                    if block == 3920:
-                        print check_sat(solver)
                     if check_sat(solver) == sat:
-                        global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
-                        overflow_pcs.append(global_state['pc'] - 1)
+                        # print first,second,computed
+                        # print global_state['pc'] - 1
+                        # print solver.model()
+                        if not ('some_var' in str(first) or 'some_var' in str(second)):
+                            global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
+                            overflow_pcs.append(global_state['pc'] - 1)
                     solver.pop()
-                    # # solver.push()
-                    # # print('we are here')
-                    # s1 = Solver()
-                    # s1.set("timeout", global_params.TIMEOUT)
-                    # for c in solver.assertions():
-                    #     s1.add(c)
-                    # # s1.push()
-                    # s1.add(UGT(first, computed))
-                    # # if block == 3920:
-                    # #     print check_sat(s1)
-                    # # print s1
-                    # # try:
-                    # #     if check_sat(s1,False) == sat:
-                    # #         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, s1.model()))
-                    # #         overflow_pcs.append(global_state['pc'] - 1)
-                    # # except Exception as e:
-                    # #     log.debug(e)
-                    # # try:
-                    # #     if check_sat(s1,False) == sat:
-                    # #         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, s1.model()))
-                    # #         overflow_pcs.append(global_state['pc'] - 1)
-                    # # except Exception as e:
-                    # #     pass
-                    # if check_sat(s1,False) == sat:
-                    #     global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, s1.model()))
-                    #     overflow_pcs.append(global_state['pc'] - 1)
-                    # solver.pop()
 
             stack.insert(0, computed)
         else:
@@ -1120,7 +1099,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     solver.push()
                     solver.add(UGT(second, first))
                     if check_sat(solver) == sat:
-                        global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
+                        # print first,second
+                        if not ('some_var' in str(first) or 'some_var' in str(second)):
+                            global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
                     solver.pop()
 
             stack.insert(0, computed)
@@ -1385,8 +1366,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
-	    # log.warning("the first is: %s, and the second is : %s",first,second)
-	    # log.warning(path_conditions_and_vars)
+        # log.warning("the first is: %s, and the second is : %s",first,second)
+        # log.warning(path_conditions_and_vars)
             if isAllReal(first, second):
                 first = to_unsigned(first)
                 second = to_unsigned(second)
@@ -1396,10 +1377,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     computed = 0
             else:
                 computed = If(ULT(first, second), BitVecVal(1, 256), BitVecVal(0, 256))
-		#log.warning("computed is: %s",computed)
+            #log.warning("computed is: %s",computed)
             computed = simplify(computed) if is_expr(computed) else computed
             # log.warning("computed is: %s",computed)
-	    stack.insert(0, computed)
+            stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
     elif opcode == "GT":
@@ -1461,8 +1442,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
-	    # log.warning('EQ: the first is %s and the second is %s', first, second)
-	    # log.warning("EQ: first is %s and second is %s",first,second)
+        # log.warning('EQ: the first is %s and the second is %s', first, second)
+        # log.warning("EQ: first is %s and second is %s",first,second)
             if isAllReal(first, second):
                 if first == second:
                     computed = 1
@@ -1772,7 +1753,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             address = stack.pop(0)
-	    # log.warning(address)
+        # log.warning(address)
             if isReal(address) and global_params.USE_GLOBAL_BLOCKCHAIN:
                 code = data_source.getCode(address)
                 stack.insert(0, len(code)/2)
@@ -1877,7 +1858,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             global_state["pc"] = global_state["pc"] + 1
             address = stack.pop(0)
             current_miu_i = global_state["miu_i"]
-	    # log.warning("MLOAD: address is:%s, mem is :%s",address,mem)
+        # log.warning("MLOAD: address is:%s, mem is :%s",address,mem)
             if isAllReal(address, current_miu_i) and address in mem:
                 if six.PY2:
                     temp = long(math.ceil((address + 32) / float(32)))
@@ -1918,7 +1899,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             stored_address = stack.pop(0)
             stored_value = stack.pop(0)
             current_miu_i = global_state["miu_i"]
-	    # log.warning("current store address is:%s and the current mem is:%s",stored_address,mem)
+        # log.warning("current store address is:%s and the current mem is:%s",stored_address,mem)
             if isReal(stored_address):
                 # preparing data for hashing later
                 old_size = len(memory) // 32
@@ -1988,12 +1969,12 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         if len(stack) > 0:
             global_state["pc"] = global_state["pc"] + 1
             position = stack.pop(0)
-	    # log.warning(global_state["Ia"])
-	    # log.warning("the isposition is %s",isReal(position))
+        # log.warning(global_state["Ia"])
+        # log.warning("the isposition is %s",isReal(position))
             if isReal(position) and position in global_state["Ia"]:
                 value = global_state["Ia"][position]
                 stack.insert(0, value)
-		#log.warning("i'm here the value is %s",value)
+      #log.warning("i'm here the value is %s",value)
             elif global_params.USE_GLOBAL_STORAGE and isReal(position) and position not in global_state["Ia"]:
                 value = data_source.getStorageAt(position)
                 global_state["Ia"][position] = value
@@ -2194,10 +2175,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             solver.add(is_enough_fund)
             # log.warning("check_sat(solver) is %s",str(check_sat(solver)))
             if check_sat(solver) == unsat:
-		        # log.warning("we are in if")
+              # log.warning("we are in if")
                 # this means not enough fund, thus the execution will result in exception
-		        solver.pop()
-		        stack.insert(0, 0)   # x = 0
+              solver.pop()
+              stack.insert(0, 0)   # x = 0
             # elif size_data_input == 0:
             #     # it is a address.transfer or address.sender call
             #     solver.pop()
@@ -2676,7 +2657,7 @@ def detect_integer_overflow(is_printLog=True):
             overflows.append(overflow)
     # log.warning(overflows)
     integer_overflow = IntegerOverflow(g_src_map, overflows)
-
+    # print integer_overflow.get_warnings()
     if g_src_map:
         results['vulnerabilities']['integer_overflow'] = integer_overflow.get_warnings()
     else:
