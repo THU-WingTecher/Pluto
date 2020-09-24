@@ -51,20 +51,14 @@ def check_sat(solver, pop_if_exception=True):
         # print solver
         ret = solver.check()
         if ret == unknown:
-            # s1 = Solver()
-            # for c in solver.assertions():
-            #     s1.add(c)
-            # print s1
-            # print s1.check()
-            # print solver.check()
             raise Z3Exception(solver.reason_unknown())
     except Exception as e:
         if pop_if_exception:
             solver.pop()
-        # print e
         raise e
     
     return ret
+
 
 def custom_deepcopy(input):
     output = {}
