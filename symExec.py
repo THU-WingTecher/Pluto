@@ -579,6 +579,7 @@ def add_falls_to():
         if jump_type[key] != "terminal" and jump_type[key] != "unconditional" and i+1 < length:
             target = key_list[i+1]
             edges[key].append(target)
+            # print key,target
             vertices[key].set_falls_to(target)
 
 
@@ -922,6 +923,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 # no need to check for the negated condition, but we can immediately go into
                 # the else branch
                 log.debug("INFEASIBLE PATH DETECTED")
+                solver.pop()
             else:
                 right_branch = vertices[block].get_falls_to()
                 # print block,right_branch
@@ -933,14 +935,14 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 # print 'execute right !!!!!'
                 solver.pop()
                 sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
-                solver.push()
+                # solver.push()
         except TimeoutError:
             raise
         except Exception as e:
             if global_params.DEBUG_MODE:
                 traceback.print_exc()
         # print solver
-        solver.pop()  # POP SOLVER CONTEXT
+        # solver.pop()  # POP SOLVER CONTEXT
         updated_count_number = visited_edges[current_edge] - 1
         visited_edges.update({current_edge: updated_count_number})
     else:
@@ -1049,9 +1051,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                         # print first,second,computed
                         # print global_state['pc'] - 1
                         # print solver.model()
-                        if not ('some_var' in str(first) or 'some_var' in str(second)):
-                            global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
-                            overflow_pcs.append(global_state['pc'] - 1)
+                        # if not ('some_var' in str(first) or 'some_var' in str(second)):
+                        global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
+                        overflow_pcs.append(global_state['pc'] - 1)
                     solver.pop()
 
             stack.insert(0, computed)
@@ -1100,8 +1102,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     solver.add(UGT(second, first))
                     if check_sat(solver) == sat:
                         # print first,second
-                        if not ('some_var' in str(first) or 'some_var' in str(second)):
-                            global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
+                        # if not ('some_var' in str(first) or 'some_var' in str(second)):
+                        global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
                     solver.pop()
 
             stack.insert(0, computed)
