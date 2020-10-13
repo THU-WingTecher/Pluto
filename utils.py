@@ -48,7 +48,6 @@ def to_signed(number):
 
 def check_sat(solver, pop_if_exception=True):
     try:
-        # print solver
         ret = solver.check()
         if ret == unknown:
             raise Z3Exception(solver.reason_unknown())
@@ -56,7 +55,6 @@ def check_sat(solver, pop_if_exception=True):
         if pop_if_exception:
             solver.pop()
         raise e
-    
     return ret
 
 

@@ -150,6 +150,7 @@ class InputHelper:
         else:
             cmd = "solc --bin %s %s --allow-paths %s" % (self.remap, self.source, self.allow_paths)
         err = ''
+        # print(cmd)
         if self.compilation_err:
             out, err = run_command_with_err(cmd)
             err = re.sub(self.root_path, "", err)
@@ -201,7 +202,7 @@ class InputHelper:
         contracts = re.findall(binary_regex, s)
         # print binary_regex
         contracts = [contract for contract in contracts if contract[1]]
-        if not contracts:
+        if not contracts and not isbin:
             if not self.compilation_err:
                 logging.critical("Solidity compilation failed. Please use -ce flag to see the detail.")
                 if global_params.WEB:

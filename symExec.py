@@ -812,17 +812,16 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     except KeyError:
         log.debug("This path results in an exception, possibly an invalid jump address")
         return ["ERROR"]
-    # if block == 3920:
-    #     print block_ins
+
     for instr in block_ins:
-        # log.warning("execute instruction:%s",instr)
+        # if is_printLog:
+        #     log.warning("execute instruction:%s",instr)
         # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
-        # if block == 3920:
-        #     print instr
         sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog)
-        
+        # if 'RETURN' in instr:
+        #         print jump_type[block]
         # print stack
 
     # Mark that this basic block in the visited blocks
@@ -837,7 +836,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
         all_gs.append(copy_global_values(global_state))
 
-    # Go to next Basic Block(s)
+     # Go to next Basic Block(s)
     if jump_type[block] == "terminal" or depth > global_params.DEPTH_LIMIT:
         global total_no_of_paths
         global no_of_test_cases
@@ -865,49 +864,47 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
 
     elif jump_type[block] == "unconditional":  # executing "JUMP"
         successor = vertices[block].get_jump_target()
-        # print block,successor
         new_params = params.copy()
         new_params.global_state["pc"] = successor
         if g_src_map:
             source_code = g_src_map.get_source_code(global_state['pc'])
             if source_code in g_src_map.func_call_names:
                 func_call = global_state['pc']
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
     elif jump_type[block] == "falls_to":  # just follow to the next basic block
         successor = vertices[block].get_falls_to()
         new_params = params.copy()
         new_params.global_state["pc"] = successor
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
     elif jump_type[block] == "conditional":  # executing "JUMPI"
 
         # A choice point, we proceed with depth first search
 
         branch_expression = vertices[block].get_branch_expression()
-        
+        # print(branch_expression)
+
         log.debug("Branch expression: " + str(branch_expression))
 
         solver.push()  # SET A BOUNDARY FOR SOLVER
         solver.add(branch_expression)
-        # print branch_expression
+        # print(solver)
         try:
             if solver.check() == unsat:
                 log.debug("INFEASIBLE PATH DETECTED")
             else:
                 left_branch = vertices[block].get_jump_target()
-                # print block,left_branch
                 new_params = params.copy()
                 new_params.global_state["pc"] = left_branch
                 new_params.path_conditions_and_vars["path_condition"].append(branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
-                solver.pop()
-                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name,is_printLog)
-                solver.push()
+                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name)
         except TimeoutError:
             raise
         except Exception as e:
             if global_params.DEBUG_MODE:
                 traceback.print_exc()
+
         solver.pop()  # POP SOLVER CONTEXT
 
         solver.push()  # SET A BOUNDARY FOR SOLVER
@@ -915,34 +912,28 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         solver.add(negated_branch_expression)
 
         log.debug("Negated branch expression: " + str(negated_branch_expression))
-        # print solver
+
         try:
-            # print solver.check()
             if solver.check() == unsat:
                 # Note that this check can be optimized. I.e. if the previous check succeeds,
                 # no need to check for the negated condition, but we can immediately go into
                 # the else branch
                 log.debug("INFEASIBLE PATH DETECTED")
-                solver.pop()
             else:
                 right_branch = vertices[block].get_falls_to()
-                # print block,right_branch
                 new_params = params.copy()
                 new_params.global_state["pc"] = right_branch
                 new_params.path_conditions_and_vars["path_condition"].append(negated_branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
                 # print 'execute right !!!!!'
-                solver.pop()
-                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
-                # solver.push()
+                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name)
         except TimeoutError:
             raise
         except Exception as e:
             if global_params.DEBUG_MODE:
                 traceback.print_exc()
-        # print solver
-        # solver.pop()  # POP SOLVER CONTEXT
+        solver.pop()  # POP SOLVER CONTEXT
         updated_count_number = visited_edges[current_edge] - 1
         visited_edges.update({current_edge: updated_count_number})
     else:
@@ -1018,12 +1009,11 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         global_state["pc"] = global_state["pc"] + 1
         return
     elif opcode == "ADD":
-        # if block == 3920:
-        #     print stack
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+            # print jump_type[block]
             # Type conversion is needed when they are mismatched
             if isReal(first) and isSymbolic(second):
                 first = BitVecVal(first, 256)
@@ -1035,7 +1025,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 # both are real and we need to manually modulus with 2 ** 256
                 # if both are symbolic z3 takes care of modulus automatically
                 computed = (first + second) % (2 ** 256)
-            computed = simplify(computed) if is_expr(computed) else computed
+            computed = simplify(computed) if is_expr(computed) else computed          
             check_revert = False
             if jump_type[block] == 'conditional':
                 jump_target = vertices[block].get_jump_target()
@@ -1048,14 +1038,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     solver.push()
                     solver.add(UGT(first, computed))
                     if check_sat(solver) == sat:
-                        # print first,second,computed
-                        # print global_state['pc'] - 1
-                        # print solver.model()
-                        # if not ('some_var' in str(first) or 'some_var' in str(second)):
                         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
                         overflow_pcs.append(global_state['pc'] - 1)
                     solver.pop()
-
             stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
@@ -1101,11 +1086,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     solver.push()
                     solver.add(UGT(second, first))
                     if check_sat(solver) == sat:
-                        # print first,second
                         # if not ('some_var' in str(first) or 'some_var' in str(second)):
                         global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
                     solver.pop()
-
             stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
@@ -1114,6 +1097,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+            # print(first,second)
             if isAllReal(first, second):
                 if second == 0:
                     computed = 0
@@ -1131,7 +1115,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 else:
                     computed = UDiv(first, second)
                 solver.pop()
+                # print(computed)
             computed = simplify(computed) if is_expr(computed) else computed
+            # print(computed)
             stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
@@ -2029,8 +2015,6 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMP":
-        # if block == 3920:
-        #     print stack
         if len(stack) > 0:
             target_address = stack.pop(0)
             if isSymbolic(target_address):
@@ -2057,6 +2041,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             # print 'target address is **'+str(target_address)
             vertices[block].set_jump_target(target_address)
             flag = stack.pop(0)
+            # print(flag)
             branch_expression = (BitVecVal(0, 1) == BitVecVal(1, 1))
             # print flag
             if isReal(flag):
@@ -2190,7 +2175,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 # log.warning(target_inp)
                 return_code_call = -1
                 call_data = None
-                valid_call = (isReal(size_data_input) and size_data_input != 0)
+                valid_call = (isReal(size_data_input) and size_data_input != 0 and (start_data_input in mem))
+                # print('validCALL************',valid_call)
                 if valid_call:
                     call_data = mem[start_data_input]
                     if call_data != None and isReal(call_data):
@@ -2199,7 +2185,6 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                         # start_data_input, size_data_input, start_data_output and size_data_output
                         # log.warning("we are in else")
                         call_data = mem[start_data_input]
-                        # log.warning("call_data is %s",str(call_data))
                         # log.warning("memory is %s",str(mem))
                         # store the msg.data for calling functions
                         msg_data = call_data
@@ -2239,11 +2224,10 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     result_call, return_code_call = run(disasm_file=target_inp['disasm_file'], bin_disasm_file=target_inp['bin_disasm_file'], all_contracts=g_all_contracts, is_initCallVariable=False,
                                     is_printLog=False, source_map=target_inp['source_map'],source_file=target_inp['source_map'])
                     # load the backup state
-                    # print return_code_call
                     _load_state()
                     solver.push()
                 # log.warning('return_code_call is %s',str(return_code_call))
-                if target_inp != None and return_code_call != 0:
+                if target_inp == None:
                     solver.pop()
                     stack.insert(0, 0)
                 else:
@@ -2270,7 +2254,6 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     last_idx = len(path_conditions_and_vars["path_condition"]) - 1
 
                     constraint = (0 == 1)
-                    # print return_data
                     if len(return_data) != 0:
                         for returnV in return_data:
                             if(isReal(returnV)):
@@ -2416,6 +2399,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 return_data_size = stack.pop(0)
                 # new_var_name = gen.gen_arbitrary_var()
                 # new_var = BitVec(new_var_name, 256)
+                # print is_printLog
                 if not is_printLog:
                     # print mem[offset]
                     if(not isReal(mem[offset])):
