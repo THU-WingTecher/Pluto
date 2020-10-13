@@ -829,9 +829,17 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     depth += 1
 
     reentrancy_all_paths.append(analysis["reentrancy_bug"])
+    # path_c = str(path_conditions_and_vars["path_condition"])
+    # if "lockTime_intou21[msg.sender]" in path_c and "IH_s" in path_c:
+    #     print(path_conditions)
+        # print(money_flow_all_paths)
     if analysis["money_flow"] not in money_flow_all_paths:
         global_problematic_pcs["money_concurrency_bug"].append(analysis["money_concurrency_bug"])
         money_flow_all_paths.append(analysis["money_flow"])
+        path_conditions.append(path_conditions_and_vars["path_condition"])
+        global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
+        all_gs.append(copy_global_values(global_state))
+    elif path_conditions_and_vars["path_condition"] not in path_conditions:
         path_conditions.append(path_conditions_and_vars["path_condition"])
         global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
         all_gs.append(copy_global_values(global_state))
@@ -2459,14 +2467,17 @@ def detect_time_dependency(is_printLog=True):
     pcs = []
     if global_params.PRINT_PATHS:
         log.info("ALL PATH CONDITIONS")
+    # print(global_problematic_pcs["time_dependency_bug"])
     for i, cond in enumerate(path_conditions):
         if global_params.PRINT_PATHS:
+        # if True:
             log.info("PATH " + str(i + 1) + ": " + str(cond))
         for j, expr in enumerate(cond):
             if is_expr(expr):
                 if TIMESTAMP_VAR in str(expr) and j in global_problematic_pcs["time_dependency_bug"][i]:
                     pcs.append(global_problematic_pcs["time_dependency_bug"][i][j])
                     is_dependant = True
+                    # print(pcs)
                     continue
 
     time_dependency = TimeDependency(g_src_map, pcs)
