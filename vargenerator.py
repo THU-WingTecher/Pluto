@@ -24,7 +24,12 @@ class Generator:
 
     def gen_arbitrary_var(self):
         self.count += 1
+        if self.count == 11:
+            print("here")
         return "some_var_" + str(self.count)
+    def gen_arbitary_hash_var(self):
+        self.count += 1
+        return "some_hash_" + str(self.count)
 
     def gen_arbitrary_address_var(self):
         self.count += 1
@@ -58,3 +63,29 @@ class Generator:
 
     def gen_code_size_var(self, address):
         return "code_size_" + str(address)
+    
+    def checkArtificial(self, var):
+        flag = False
+        var = str(var)
+        # if "Id_" in var:
+        #     flag = True
+        # elif "mem_" in var:
+        #     flag = True
+        # elif "some_var_" in var:
+        #     flag = True
+        # elif "some_address_" in var:
+        #     flag = True
+        # elif "Ia_store-" in var:
+        #     flag = True
+        # elif "gas_" in var:
+        #     flag = True
+        # elif "Ip" in var or "Ia" in var or "Io" in var or "Is" in var:
+        #     flag = True
+        # elif "balance_" in var:
+        #     flag = True
+        # elif "code_" in var:
+        #     flag = True
+        if "some_hash_" in var:
+            flag = True
+        flag = False
+        return flag

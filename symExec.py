@@ -814,8 +814,8 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         return ["ERROR"]
 
     for instr in block_ins:
-        # if is_printLog:
-        #     log.warning("execute instruction:%s",instr)
+        if is_printLog:
+            log.warning("execute instruction:%s",instr)
         # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
@@ -830,16 +830,16 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
 
     reentrancy_all_paths.append(analysis["reentrancy_bug"])
     # path_c = str(path_conditions_and_vars["path_condition"])
-    # if "lockTime_intou21[msg.sender]" in path_c and "IH_s" in path_c:
+    # if "IH_s" in path_c and "20" in path_c:
     #     print(path_conditions)
-        # print(money_flow_all_paths)
+    #     print(money_flow_all_paths)
     if analysis["money_flow"] not in money_flow_all_paths:
         global_problematic_pcs["money_concurrency_bug"].append(analysis["money_concurrency_bug"])
         money_flow_all_paths.append(analysis["money_flow"])
         path_conditions.append(path_conditions_and_vars["path_condition"])
         global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
         all_gs.append(copy_global_values(global_state))
-    elif path_conditions_and_vars["path_condition"] not in path_conditions:
+    elif path_conditions_and_vars["path_condition"] not in path_conditions and analysis["money_flow"] != [("Is", "Ia", "Iv")]:
         path_conditions.append(path_conditions_and_vars["path_condition"])
         global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
         all_gs.append(copy_global_values(global_state))
@@ -1045,10 +1045,14 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 if not isAllReal(computed, first):
                     solver.push()
                     solver.add(UGT(first, computed))
-                    if check_sat(solver) == sat:
+                    if check_sat(solver) == sat and not gen.checkArtificial(first) and not gen.checkArtificial(second):
+                        # print(first,second)
                         global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
                         overflow_pcs.append(global_state['pc'] - 1)
                     solver.pop()
+                else:
+                    if first > computed:
+                        global_problematic_pcs['integer_overflow'].append(Overflow(global_state['pc'] - 1, solver.model()))
             stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
@@ -1093,10 +1097,15 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 if not isAllReal(first, second):
                     solver.push()
                     solver.add(UGT(second, first))
-                    if check_sat(solver) == sat:
+                    if check_sat(solver) == sat and not gen.checkArtificial(first) and not gen.checkArtificial(second):
+                        # print(first,second)
                         # if not ('some_var' in str(first) or 'some_var' in str(second)):
                         global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
                     solver.pop()
+                else:
+                    if second > first:
+                        global_problematic_pcs['integer_underflow'].append(Underflow(global_state['pc'] - 1, solver.model()))
+
             stack.insert(0, computed)
         else:
             raise ValueError('STACK underflow')
@@ -1559,13 +1568,13 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 if position in sha3_list:
                     stack.insert(0, sha3_list[position])
                 else:
-                    new_var_name = gen.gen_arbitrary_var()
+                    new_var_name = gen.gen_arbitary_hash_var()
                     new_var = BitVec(new_var_name, 256)
                     sha3_list[position] = new_var
                     stack.insert(0, new_var)
             else:
                 # push into the execution a fresh symbolic variable
-                new_var_name = gen.gen_arbitrary_var()
+                new_var_name = gen.gen_arbitary_hash_var()
                 new_var = BitVec(new_var_name, 256)
                 path_conditions_and_vars[new_var_name] = new_var
                 stack.insert(0, new_var)
@@ -2036,6 +2045,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         else:
             raise ValueError('STACK underflow')
     elif opcode == "JUMPI":
+        # print(stack)
         # We need to prepare two branches
         # print mem
         if len(stack) > 1:
@@ -2234,84 +2244,86 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     # load the backup state
                     _load_state()
                     solver.push()
-                # log.warning('return_code_call is %s',str(return_code_call))
-                if target_inp == None:
-                    solver.pop()
-                    stack.insert(0, 0)
-                else:
-                    # the execution is possibly okay
-                    stack.insert(0, 1)   # x = 1
-                    # TODO: the return value is success, what's next
-                    if target_inp != None:
-                        # add the return data to memory
-                        new_var_name = gen.gen_arbitrary_var()
-                        new_var = BitVec(new_var_name, 256)
+                    log.warning('return_code_call is %s',str(return_code_call))
+                # if target_inp == None:
+                #     solver.pop()
+                #     stack.insert(0, 0)
+                # else:
+                # the execution is possibly okay
+                stack.insert(0, 1)   # x = 1
+                # TODO: the return value is success, what's next
+                if target_inp != None:
+                    # add the return data to memory
+                    new_var_name = gen.gen_arbitrary_var()
+                    new_var = BitVec(new_var_name, 256)
 
-                        path_conditions_and_vars[new_var_name] = new_var
-                        # print solver
-                        # print return_data
-                        # mem[start_data_output] = return_data
-                        # print solver
-                        mem[start_data_output] = new_var
-                        # log.warning(mem) 
+                    path_conditions_and_vars[new_var_name] = new_var
+                    # print solver
+                    # print return_data
+                    # mem[start_data_output] = return_data
+                    # print solver
+                    mem[start_data_output] = new_var
+                    # log.warning(mem) 
 
-                    solver.pop()
-                    
-                    solver.add(is_enough_fund)
-                    path_conditions_and_vars["path_condition"].append(is_enough_fund)
-                    last_idx = len(path_conditions_and_vars["path_condition"]) - 1
+                solver.pop()
+                
+                solver.add(is_enough_fund)
+                path_conditions_and_vars["path_condition"].append(is_enough_fund)
+                last_idx = len(path_conditions_and_vars["path_condition"]) - 1
 
-                    constraint = (0 == 1)
-                    if len(return_data) != 0:
-                        for returnV in return_data:
-                            if(isReal(returnV)):
-                                constraint = Or(constraint,new_var == returnV)
-                            else:
-                                newconstraint = (new_var == returnV)
-                                solver.add(newconstraint)
-                                new1 = (0 == 0)
-                                # print return_symbol_cons
-                                for cons in return_symbol_cons[str(returnV)]:
-                                    new1 = And(new1, cons)
-                                    # solver.push()
-                                    # solver.add(cons)
-                                    # ret = solver.check()
-                                    # print solver
-                                    # print ret
-                                    # solver.pop()
-                                    # print newconstraint
-                                
-                                constraint = Or(constraint, new1)
-                        solver.add(constraint)
-                        # print solver
-                        path_conditions_and_vars["path_condition"].append(constraint)
-                    analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
-                    new_balance_ia = (balance_ia - transfer_amount)
-                    global_state["balance"]["Ia"] = new_balance_ia
-                    address_is = path_conditions_and_vars["Is"]
-                    address_is = (address_is & CONSTANT_ONES_159)
-                    boolean_expression = (recipient != address_is)
-                    solver.push()
-                    solver.add(boolean_expression)
-                    if check_sat(solver) == unsat:
-                        solver.pop()
-                        new_balance_is = (global_state["balance"]["Is"] + transfer_amount)
-                        global_state["balance"]["Is"] = new_balance_is
-                    else:
-                        solver.pop()
-                        if isReal(recipient):
-                            new_address_name = "concrete_address_" + str(recipient)
+                constraint = (0 == 1)
+                # print("here")
+                if len(return_data) != 0:
+                    for returnV in return_data:
+                        if(isReal(returnV)):
+                            constraint = Or(constraint,new_var == returnV)
                         else:
-                            new_address_name = gen.gen_arbitrary_address_var()
-                        old_balance_name = gen.gen_arbitrary_var()
-                        old_balance = BitVec(old_balance_name, 256)
-                        path_conditions_and_vars[old_balance_name] = old_balance
-                        constraint = (old_balance >= 0)
-                        solver.add(constraint)
-                        path_conditions_and_vars["path_condition"].append(constraint)
-                        new_balance = (old_balance + transfer_amount)
-                        global_state["balance"][new_address_name] = new_balance
-                        
+                            newconstraint = (new_var == returnV)
+                            solver.add(newconstraint)
+                            new1 = (0 == 0)
+                            # print return_symbol_cons
+                            for cons in return_symbol_cons[str(returnV)]:
+                                new1 = And(new1, cons)
+                                # solver.push()
+                                # solver.add(cons)
+                                # ret = solver.check()
+                                # print solver
+                                # print ret
+                                # solver.pop()
+                                # print newconstraint
+                            
+                            constraint = Or(constraint, new1)
+                    solver.add(constraint)
+                    # print solver
+                    path_conditions_and_vars["path_condition"].append(constraint)
+                analysis["time_dependency_bug"][last_idx] = global_state["pc"] - 1
+                new_balance_ia = (balance_ia - transfer_amount)
+                global_state["balance"]["Ia"] = new_balance_ia
+                address_is = path_conditions_and_vars["Is"]
+                address_is = (address_is & CONSTANT_ONES_159)
+                boolean_expression = (recipient != address_is)
+                solver.push()
+                solver.add(boolean_expression)
+                # print(solver)
+                if check_sat(solver) == unsat:
+                    solver.pop()
+                    new_balance_is = (global_state["balance"]["Is"] + transfer_amount)
+                    global_state["balance"]["Is"] = new_balance_is
+                else:
+                    solver.pop()
+                    if isReal(recipient):
+                        new_address_name = "concrete_address_" + str(recipient)
+                    else:
+                        new_address_name = gen.gen_arbitrary_address_var()
+                    old_balance_name = gen.gen_arbitrary_var()
+                    old_balance = BitVec(old_balance_name, 256)
+                    path_conditions_and_vars[old_balance_name] = old_balance
+                    constraint = (old_balance >= 0)
+                    solver.add(constraint)
+                    path_conditions_and_vars["path_condition"].append(constraint)
+                    new_balance = (old_balance + transfer_amount)
+                    global_state["balance"][new_address_name] = new_balance
+                # print("execute successfully")   
         else:
             raise ValueError('STACK underflow')
         # print stack
