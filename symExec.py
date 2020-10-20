@@ -814,8 +814,8 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         return ["ERROR"]
 
     for instr in block_ins:
-        if is_printLog:
-            log.warning("execute instruction:%s",instr)
+        # if is_printLog:
+        #     log.warning("execute instruction:%s",instr)
         # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
@@ -843,7 +843,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         path_conditions.append(path_conditions_and_vars["path_condition"])
         global_problematic_pcs["time_dependency_bug"].append(analysis["time_dependency_bug"])
         all_gs.append(copy_global_values(global_state))
-
+    # print(jump_type[block],depth)
      # Go to next Basic Block(s)
     if jump_type[block] == "terminal" or depth > global_params.DEPTH_LIMIT:
         global total_no_of_paths
@@ -887,7 +887,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     elif jump_type[block] == "conditional":  # executing "JUMPI"
 
         # A choice point, we proceed with depth first search
-
+        # print(block)
         branch_expression = vertices[block].get_branch_expression()
         # print(branch_expression)
 
@@ -1075,6 +1075,8 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+            # print(first,second)
+            # print(jump_type[block])
             if isReal(first) and isSymbolic(second):
                 first = BitVecVal(first, 256)
                 computed = first - second
@@ -1092,8 +1094,9 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 check_revert = any([True for instruction in vertices[jump_target].get_instructions() if instruction.startswith('REVERT')])
                 if not check_revert:
                     check_revert = any([True for instruction in vertices[falls_to].get_instructions() if instruction.startswith('REVERT')])
-
-            if jump_type[block] != 'conditional' or not check_revert:
+            if jump_type[block] != 'conditional' or True:
+                # sub operation is a bug in require:
+                # require(a - b >= 0) is always true because both a and b are unsigned integer
                 if not isAllReal(first, second):
                     solver.push()
                     solver.add(UGT(second, first))
@@ -2068,9 +2071,11 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
             else:
                 branch_expression = (flag != 0)
             # print solver
+            # print(block,branch_expression)
             vertices[block].set_branch_expression(branch_expression)
             if target_address not in edges[block]:
                 edges[block].append(target_address)
+            # print("here")
         else:
             raise ValueError('STACK underflow')
     elif opcode == "PC":

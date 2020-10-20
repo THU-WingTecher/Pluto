@@ -24,8 +24,6 @@ class Generator:
 
     def gen_arbitrary_var(self):
         self.count += 1
-        if self.count == 11:
-            print("here")
         return "some_var_" + str(self.count)
     def gen_arbitary_hash_var(self):
         self.count += 1
