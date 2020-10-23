@@ -7,7 +7,8 @@ contract RuleContract{
             return base_threshold;
         }
         else{
-            return currentTarget*1000;
+            uint res = currentTarget*1000;
+            return res;
         }
     }
 }

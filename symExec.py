@@ -14,6 +14,7 @@ import six
 import time
 from collections import namedtuple
 from z3 import *
+import re
 
 from vargenerator import *
 from ethereum_data import *
@@ -773,7 +774,6 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
     analysis = params.analysis
     calls = params.calls
     overflow_pcs = params.overflow_pcs
-
     Edge = namedtuple("Edge", ["v1", "v2"]) # Factory Function for tuples is used as dictionary key
     if block < 0:
         log.debug("UNKNOWN JUMP ADDRESS. TERMINATING THIS PATH")
@@ -814,11 +814,12 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
         return ["ERROR"]
 
     for instr in block_ins:
-        # if is_printLog:
+        # if not is_printLog:
         #     log.warning("execute instruction:%s",instr)
         # log.warning("current solver is %s",solver)
         # log.warning("the current memory is %s",mem)
         # log.warning("the current stack is %s",stack)
+        # print("ins is_printlog",is_printLog)
         sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog)
         # if 'RETURN' in instr:
         #         print jump_type[block]
@@ -878,12 +879,12 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
             source_code = g_src_map.get_source_code(global_state['pc'])
             if source_code in g_src_map.func_call_names:
                 func_call = global_state['pc']
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
     elif jump_type[block] == "falls_to":  # just follow to the next basic block
         successor = vertices[block].get_falls_to()
         new_params = params.copy()
         new_params.global_state["pc"] = successor
-        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name)
+        sym_exec_block(new_params, successor, block, depth, func_call, current_func_name,is_printLog)
     elif jump_type[block] == "conditional":  # executing "JUMPI"
 
         # A choice point, we proceed with depth first search
@@ -906,7 +907,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 new_params.path_conditions_and_vars["path_condition"].append(branch_expression)
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
-                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name)
+                sym_exec_block(new_params, left_branch, block, depth, func_call, current_func_name,is_printLog)
         except TimeoutError:
             raise
         except Exception as e:
@@ -935,7 +936,7 @@ def sym_exec_block(params, block, pre_block, depth, func_call, current_func_name
                 last_idx = len(new_params.path_conditions_and_vars["path_condition"]) - 1
                 new_params.analysis["time_dependency_bug"][last_idx] = global_state["pc"]
                 # print 'execute right !!!!!'
-                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name)
+                sym_exec_block(new_params, right_branch, block, depth, func_call, current_func_name,is_printLog)
         except TimeoutError:
             raise
         except Exception as e:
@@ -1482,11 +1483,18 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
         else:
             raise ValueError('STACK underflow')
     elif opcode == "AND":
+        # if not is_printLog:
+        #     print(stack)
         if len(stack) > 1:
             global_state["pc"] = global_state["pc"] + 1
             first = stack.pop(0)
             second = stack.pop(0)
+            if type(first) == type(1.0):
+                first = int(first)
+            if type(second) == type(1.0):
+                second = int(second)
             computed = first & second
+            # print(computed)
             computed = simplify(computed) if is_expr(computed) else computed
             stack.insert(0, computed)
         else:
@@ -2240,6 +2248,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                         # run the target function symboliclly
                         # log.warning('signature is %s', signature)
                         # log.warning('target contract is %s',target_inp['disasm_file'])
+                # print(target_inp)
                 if target_inp != None:
                     solver.pop()
                     _backup_state()
@@ -2249,7 +2258,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                     # load the backup state
                     _load_state()
                     solver.push()
-                    log.warning('return_code_call is %s',str(return_code_call))
+                    # log.warning('return_code_call is %s',str(return_code_call))
                 # if target_inp == None:
                 #     solver.pop()
                 #     stack.insert(0, 0)
@@ -2424,19 +2433,27 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                 return_data_size = stack.pop(0)
                 # new_var_name = gen.gen_arbitrary_var()
                 # new_var = BitVec(new_var_name, 256)
-                # print is_printLog
+                # print("RETURN",is_printLog)
                 if not is_printLog:
-                    # print mem[offset]
+                    # print(mem[offset])
                     if(not isReal(mem[offset])):
-                        # print mem[offset]
+                        # print(mem[offset])
                         for c in solver.assertions():
                             # print('**************')
-                            # print(str(c))
-                            if str(mem[offset]) in str(c) or 'currentTarget' in str(c):
-                                
-                                if not return_symbol_cons.has_key(str(mem[offset])):
-                                    return_symbol_cons[str(mem[offset])]=[]
-                                return_symbol_cons[str(mem[offset])].append(c)
+                            # print(str(c),type(mem[offset]))
+                            # re.split('。|！|？',text)
+                            var_list = []
+                            for ind_ in range(mem[offset].num_args()):
+                                if 'BitVecNumRef' not in str(type(mem[offset].arg(ind_))):
+                                    var_list.append(str(mem[offset].arg(ind_)))
+                                # print(isInstance(type(mem[offset].arg(ind_),BitVecNumRef))
+                            # print(is_var(mem[offset].arg(1)))
+                            for v in var_list:
+                                if v in str(c):
+                                # if str(mem[offset]) in str(c) or 'currentTarget' in str(c):
+                                    if str(mem[offset]) not in return_symbol_cons:
+                                        return_symbol_cons[str(mem[offset])]=[]
+                                    return_symbol_cons[str(mem[offset])].append(c)
                         # print return_symbol_cons
                     if mem[offset] not in return_data:
                         return_data.append(mem[offset])
@@ -2825,7 +2842,6 @@ def do_nothing():
 def run_build_cfg_and_analyze(timeout_cb=do_nothing, is_printLog=True):
     initGlobalVars()
     global g_timeout
-
     try:
         with Timeout(sec=global_params.GLOBAL_TIMEOUT):
             build_cfg_and_analyze(is_printLog)
