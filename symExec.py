@@ -20,8 +20,7 @@ from vargenerator import *
 from ethereum_data import *
 from basicblock import BasicBlock
 from analysis import *
-from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,
-                                         EXCEPTION, PICKLE_PATH)
+from test_evm.global_test_params import (TIME_OUT, UNKNOWN_INSTRUCTION,EXCEPTION, PICKLE_PATH)
 from vulnerability import CallStack, TimeDependency, MoneyConcurrency, Reentrancy, AssertionFailure, ParityMultisigBug2, IntegerUnderflow, IntegerOverflow
 import global_params
 
@@ -2441,7 +2440,7 @@ def sym_exec_ins(params, block, instr, func_call, current_func_name,is_printLog=
                         for c in solver.assertions():
                             # print('**************')
                             # print(str(c),type(mem[offset]))
-                            # re.split('。|！|？',text)
+                            # re.split('。|！|�?',text)
                             var_list = []
                             for ind_ in range(mem[offset].num_args()):
                                 if 'BitVecNumRef' not in str(type(mem[offset].arg(ind_))):

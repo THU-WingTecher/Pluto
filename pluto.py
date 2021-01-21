@@ -131,7 +131,7 @@ def main():
 
     parser.add_argument("-cnames", "--target-contracts", type=str, nargs="+", help="The name of targeted contracts. If specified, only the specified contracts in the source code will be processed. By default, all contracts in Solidity code are processed.")
     
-    parser.add_argument("--version", action="version", version="oyente version 0.2.7 - Commonwealth")
+    parser.add_argument("--version", action="version", version="pluto version 0.1.0")
 
     parser.add_argument("-rmp", "--remap",          help="Remap directory paths", action="store", type=str)
     parser.add_argument("-t",   "--timeout",        help="Timeout for Z3 in ms.", action="store", type=int)
@@ -143,14 +143,14 @@ def main():
     parser.add_argument("-glt", "--global-timeout", help="Timeout for symbolic execution", action="store", dest="global_timeout", type=int)
 
     parser.add_argument( "-e",   "--evm",                    help="Do not remove the .evm file.", action="store_true")
-    parser.add_argument( "-w",   "--web",                    help="Run Oyente for web service", action="store_true")
+    parser.add_argument( "-w",   "--web",                    help="Run Pluto for web service", action="store_true")
     parser.add_argument( "-j",   "--json",                   help="Redirect results to a json file.", action="store_true")
     parser.add_argument( "-p",   "--paths",                  help="Print path condition information.", action="store_true")
     parser.add_argument( "-db",  "--debug",                  help="Display debug information", action="store_true")
     parser.add_argument( "-st",  "--state",                  help="Get input state from state.json", action="store_true")
     parser.add_argument( "-r",   "--report",                 help="Create .report file.", action="store_true")
     parser.add_argument( "-v",   "--verbose",                help="Verbose output, print everything.", action="store_true")
-    parser.add_argument( "-pl",  "--parallel",               help="Run Oyente in parallel. Note: The performance may depend on the contract", action="store_true")
+    parser.add_argument( "-pl",  "--parallel",               help="Run Pluto in parallel. Note: The performance may depend on the contract", action="store_true")
     parser.add_argument( "-b",   "--bytecode",               help="read bytecode in source instead of solidity file.", action="store_true")
     parser.add_argument( "-a",   "--assertion",              help="Check assertion failures.", action="store_true")
     parser.add_argument( "-sj",  "--standard-json",          help="Support Standard JSON input", action="store_true")

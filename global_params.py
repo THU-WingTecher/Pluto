@@ -26,7 +26,7 @@ GLOBAL_TIMEOUT_TEST = 2
 # print path conditions
 PRINT_PATHS = 0
 
-# WEB = 1 means that we are using Oyente for web service
+# WEB = 1 means that we are using Pluto for web service
 WEB = 0
 
 # Redirect results to a json file.
@@ -52,7 +52,7 @@ CHECK_ASSERTIONS = 0
 
 GENERATE_TEST_CASES = 0
 
-# Run Oyente in parallel
+# Run Pluto in parallel
 PARALLEL = 0
 
 # Iterable of targeted smart contract names
